@@ -109,14 +109,14 @@ Replace `static/spec_large.png` with your own logo. It renders at `max-width: 18
 ### App Title & Subtitle
 
 In `templates/index.html`, update:
-- **Header title** (line ~139): `<span class="header-title">Call Center AI Insights</span>`
-- **Page title** (line ~174): `<h1>AI Forensics Chat</h1>`
-- **Subtitle** (line ~175): `<div class="subtitle">Ask questions about...</div>`
+- **Header title** (line ~135): `<span class="header-title">Call Center AI Insights</span>`
+- **Page title** (line ~169): `<h1>AI Forensics Chat</h1>`
+- **Subtitle** (line ~170): `<div class="subtitle">Ask questions about...</div>`
 - **HTML title** (line ~6): `<title>AI Forensics Chat - Spectrum</title>`
 
 ### Quick Questions
 
-The four starter question cards are in `templates/index.html` (~lines 188-208). Each card has:
+The four starter question cards are in `templates/index.html` (~lines 183-198). Each card has:
 ```html
 <div class="qq-card" onclick="askQuickQuestion('Your question here')">
   <div class="qq-title"><span class="qq-icon">&#128201;</span> Card Title</div>
@@ -129,7 +129,7 @@ Replace the questions, titles, icons, and tags to match your use case. You can a
 
 ### Input Placeholder
 
-Update the placeholder text in the `<input>` element (~line 212):
+Update the placeholder text in the `<input>` element (~line 207):
 ```html
 <input ... placeholder="Ask me about call center metrics, agent performance, or anything else...">
 ```
