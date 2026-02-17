@@ -11,12 +11,24 @@ app = Flask(__name__)
 app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
 
 GENIE_SPACE_ID = os.environ.get("GENIE_SPACE_ID")
-genie = GenieClient(space_id=GENIE_SPACE_ID) if GENIE_SPACE_ID else None
+
+
+def get_genie_client():
+    """Create a per-request GenieClient using the user's on-behalf-of token when available."""
+    if not GENIE_SPACE_ID:
+        return None
+    user_token = request.headers.get("X-Forwarded-Access-Token")
+    if user_token:
+        host = os.environ.get("DATABRICKS_HOST", request.headers.get("X-Forwarded-Host", ""))
+        return GenieClient(space_id=GENIE_SPACE_ID, user_token=user_token, host=host)
+    return GenieClient(space_id=GENIE_SPACE_ID)
 
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    user_email = request.headers.get("X-Forwarded-Email", "")
+    user_name = request.headers.get("X-Forwarded-Preferred-Username", "")
+    return render_template("index.html", user_email=user_email, user_name=user_name)
 
 
 @app.route("/health")
@@ -26,6 +38,7 @@ def health():
 
 @app.route("/api/ask", methods=["POST"])
 def ask():
+    genie = get_genie_client()
     if not genie:
         return jsonify({"success": False, "error": "GENIE_SPACE_ID not configured"}), 500
 
@@ -53,6 +66,7 @@ def ask():
 
 @app.route("/api/conversations")
 def list_conversations():
+    genie = get_genie_client()
     if not genie:
         return jsonify({"success": False, "error": "GENIE_SPACE_ID not configured"}), 500
 
@@ -62,6 +76,7 @@ def list_conversations():
 
 @app.route("/api/conversations/<conversation_id>/messages")
 def get_conversation_messages(conversation_id):
+    genie = get_genie_client()
     if not genie:
         return jsonify({"success": False, "error": "GENIE_SPACE_ID not configured"}), 500
 

@@ -90,13 +90,17 @@ class GenieClient:
         timeout_seconds: int = 600,
         initial_poll_interval: float = 1.0,
         max_poll_interval: float = 60.0,
-        max_retries: int = 3
+        max_retries: int = 3,
+        user_token: Optional[str] = None,
+        host: Optional[str] = None
     ):
         self.space_id = space_id
         self.timeout_seconds = timeout_seconds
         self.initial_poll_interval = initial_poll_interval
         self.max_poll_interval = max_poll_interval
         self.max_retries = max_retries
+        self._user_token = user_token
+        self._host = host
         self._client = None
 
     @property
@@ -104,8 +108,12 @@ class GenieClient:
         """Lazy initialization of Databricks SDK client."""
         if self._client is None:
             from databricks.sdk import WorkspaceClient
-            self._client = WorkspaceClient()
-            logger.debug("Databricks WorkspaceClient initialized")
+            if self._user_token and self._host:
+                self._client = WorkspaceClient(token=self._user_token, host=self._host)
+                logger.debug("WorkspaceClient initialized with user token")
+            else:
+                self._client = WorkspaceClient()
+                logger.debug("WorkspaceClient initialized with default auth")
         return self._client
 
     def _get_next_poll_interval(self, current_interval: float) -> float:

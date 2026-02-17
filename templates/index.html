@@ -135,7 +135,7 @@
     <span class="header-title">Call Center AI Insights</span>
   </div>
   <div class="header-right">
-    <div class="avatar">A</div>
+    <div class="avatar">{{ (user_name or user_email or 'A')[0] | upper }}</div>
   </div>
 </div>
 
@@ -407,7 +407,7 @@ function addMessage(role, content) {
   const div = document.createElement('div');
   div.className = 'message ' + role;
   const formatted = role === 'assistant' ? formatMarkdown(content) : escapeHtml(content);
-  const avatarContent = role === 'user' ? 'A' : '&#129302;';
+  const avatarContent = role === 'user' ? '{{ (user_name or user_email or "A")[0] | upper }}' : '&#129302;';
   div.innerHTML =
     '<div class="msg-avatar">' + avatarContent + '</div>' +
     '<div class="bubble">' + formatted + '</div>';

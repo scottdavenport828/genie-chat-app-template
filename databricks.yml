@@ -10,6 +10,9 @@ resources:
       name: genie-chat-app
       description: "Genie-powered analytics chat application"
       source_code_path: .
+      user_api_scopes:
+        - dashboards.genie
+        - sql
 
 targets:
   dev:
