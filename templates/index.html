@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Forensics Chat - Spectrum</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; height: 100vh; display: flex; flex-direction: column; background: #f5f5f5; }
+
+  /* Header */
+  .header { background: #002139; color: #fff; padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; }
+  .header-left { display: flex; align-items: center; gap: 8px; }
+  .header-left .back-arrow { font-size: 18px; cursor: pointer; opacity: 0.8; text-decoration: none; color: #fff; }
+  .header-left .back-arrow:hover { opacity: 1; }
+  .header-left .header-title { font-size: 15px; font-weight: 500; }
+  .header-right .avatar { width: 32px; height: 32px; border-radius: 50%; border: 2px solid #fff; background: #fff; color: #002139; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; }
+
+  /* Main layout */
+  .main-container { display: flex; flex: 1; overflow: hidden; }
+
+  /* Sidebar */
+  .sidebar { width: 260px; display: flex; flex-direction: column; flex-shrink: 0; border-right: 1px solid #e0e0e0; }
+
+  /* Sidebar logo area */
+  .sidebar-logo { background: #fff; padding: 20px; border-bottom: 1px solid #e0e0e0; display: flex; align-items: center; justify-content: center; height: 90px; }
+  .sidebar-logo img { max-width: 180px; height: auto; }
+
+  /* Sidebar nav area */
+  .sidebar-nav { background: #fff; color: #333; flex: 1; display: flex; flex-direction: column; overflow: hidden; padding: 12px 0 0; }
+
+  .sidebar-section-header { margin: 0 16px 8px; padding: 10px 16px; display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 600; cursor: pointer; background: #002139; color: #fff; border-radius: 8px; }
+  .sidebar-section-header .icon { font-size: 16px; }
+  .sidebar-section-header .chevron { margin-left: auto; font-size: 12px; opacity: 0.7; }
+
+  .new-chat-link { padding: 10px 20px; font-size: 14px; color: #333; cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: 500; }
+  .new-chat-link:hover { color: #002139; }
+
+  .recent-label { padding: 12px 20px 8px; font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; color: #999; display: flex; align-items: center; gap: 6px; }
+
+  .history-list { flex: 1; overflow-y: auto; padding: 0 8px 8px; }
+  .history-item { padding: 12px 12px; border-radius: 6px; cursor: pointer; font-size: 14px; line-height: 1.4; transition: background .15s; margin-bottom: 0; color: #333; }
+  .history-item:hover { background: #f0f0f0; }
+  .history-item.active { background: #e8e8e8; }
+  .history-item .title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .history-item .timestamp { display: none; }
+  .history-spinner { display: flex; align-items: center; justify-content: center; padding: 24px; color: #999; font-size: 13px; }
+
+  .load-more-link { padding: 12px 20px; font-size: 13px; color: #002139; cursor: pointer; text-align: left; font-weight: 500; }
+  .load-more-link:hover { text-decoration: underline; }
+
+  /* Content area */
+  .content { flex: 1; display: flex; flex-direction: column; min-width: 0; background: #fafafa; }
+
+  /* Content title bar */
+  .content-title-bar { padding: 20px 28px 16px; background: #fff; border-bottom: 1px solid #e8e8e8; display: flex; align-items: flex-start; justify-content: space-between; height: 90px; }
+  .content-title-bar h1 { font-size: 26px; font-weight: 700; color: #1a1a1a; margin-bottom: 4px; }
+  .content-title-bar .subtitle { font-size: 13px; color: #888; }
+  .new-chat-btn { background: transparent; color: #002139; border: 1.5px solid #002139; border-radius: 6px; padding: 7px 16px; font-size: 12px; font-weight: 600; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; transition: background .2s, color .2s; white-space: nowrap; }
+  .new-chat-btn:hover { background: #002139; color: #fff; }
+
+  /* Chat area */
+  .chat-area { flex: 1; overflow-y: auto; padding: 24px 28px; display: flex; flex-direction: column; gap: 16px; }
+
+  /* Bot greeting */
+  .greeting { display: flex; gap: 12px; align-items: flex-start; }
+  .bot-avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #0097a7, #00796b); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; flex-shrink: 0; }
+  .greeting-bubble { background: #fff; border: 1px solid #e0e0e0; border-radius: 12px; border-bottom-left-radius: 4px; padding: 14px 18px; font-size: 14px; color: #333; line-height: 1.5; max-width: 480px; }
+  .greeting-time { font-size: 11px; color: #aaa; margin-top: 6px; }
+
+  /* Quick Questions */
+  .quick-questions { padding: 0 28px 20px; }
+  .quick-questions-label { font-size: 13px; font-weight: 600; color: #555; margin-bottom: 12px; }
+  .quick-questions-grid { display: flex; gap: 14px; flex-wrap: wrap; }
+  .qq-card { background: #fff; border: 1px solid #e0e0e0; border-radius: 10px; padding: 16px; cursor: pointer; flex: 1; min-width: 200px; max-width: 260px; transition: box-shadow .25s ease, transform .15s ease; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  .qq-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.15); transform: translateY(-1px); }
+  .qq-card .qq-title { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; color: #1a1a1a; margin-bottom: 6px; }
+  .qq-card .qq-title .qq-icon { font-size: 16px; }
+  .qq-card .qq-desc { font-size: 13px; color: #666; line-height: 1.45; margin-bottom: 10px; }
+  .qq-card .qq-tag { display: inline-block; font-size: 11px; color: #777; border: 1px solid #ddd; border-radius: 12px; padding: 2px 10px; }
+
+  /* Messages */
+  .message { display: flex; gap: 10px; max-width: 80%; }
+  .message.user { align-self: flex-end; flex-direction: row-reverse; }
+  .message.assistant { align-self: flex-start; }
+  .msg-avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+  .message.user .msg-avatar { background: #002139; color: #fff; font-weight: 600; }
+  .message.assistant .msg-avatar { background: linear-gradient(135deg, #0097a7, #00796b); color: #fff; font-size: 16px; }
+  .bubble { padding: 12px 16px; border-radius: 12px; font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; }
+  .message.user .bubble { background: #002139; color: #fff; border-bottom-right-radius: 4px; }
+  .message.assistant .bubble { background: #fff; color: #333; border: 1px solid #e0e0e0; border-bottom-left-radius: 4px; white-space: normal; }
+  .bubble strong { font-weight: 600; }
+  .bubble ul { margin: 8px 0; padding-left: 20px; }
+  .bubble li { margin-bottom: 4px; }
+  .bubble p { margin-bottom: 8px; }
+  .bubble p:last-child { margin-bottom: 0; }
+
+  /* SQL details */
+  .sql-toggle { margin-top: 8px; font-size: 12px; }
+  .sql-toggle summary { cursor: pointer; color: #002139; font-weight: 500; }
+  .sql-toggle pre { background: #f8f8f8; border: 1px solid #e0e0e0; border-radius: 6px; padding: 10px; margin-top: 6px; font-size: 12px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; }
+  .sql-kw { color: #002139; font-weight: 600; }
+
+  /* Elapsed */
+  .elapsed { font-size: 11px; color: #999; margin-top: 4px; }
+
+  /* Typing indicator */
+  .typing { display: flex; align-items: center; gap: 4px; padding: 12px 16px; }
+  .typing .dot { width: 8px; height: 8px; background: #002139; border-radius: 50%; animation: bounce 1.4s infinite ease-in-out; }
+  .typing .dot:nth-child(2) { animation-delay: 0.2s; }
+  .typing .dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes bounce { 0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; } 40% { transform: scale(1); opacity: 1; } }
+
+  /* Input bar */
+  .input-bar { background: #fff; border-top: 1px solid #e0e0e0; padding: 14px 28px; display: flex; gap: 10px; align-items: center; }
+  .input-bar input { flex: 1; border: 1px solid #ddd; border-radius: 24px; padding: 12px 20px; font-size: 14px; outline: none; }
+  .input-bar input:focus { border-color: #002139; }
+  .input-bar .send-btn { width: 40px; height: 40px; border-radius: 50%; background: #002139; color: #fff; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 18px; transition: background .2s; flex-shrink: 0; }
+  .input-bar .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .input-bar .send-btn:hover:not(:disabled) { background: #001528; }
+
+  /* Disclaimer */
+  .disclaimer { padding: 10px 28px; display: flex; align-items: center; gap: 8px; font-size: 13px; color: #3a5a7c; line-height: 1.4; background: #e8f0fa; border-top: 1px solid #d0dfef; }
+  .disclaimer .info-icon { flex-shrink: 0; font-size: 18px; color: #4a7aab; }
+
+  /* Error */
+  .error-text { color: #c0392b; }
+
+  /* Loading messages spinner */
+  .loading-messages { display: flex; align-items: center; justify-content: center; flex: 1; color: #999; font-size: 14px; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-left">
+    <span class="back-arrow">&larr;</span>
+    <span class="header-title">Call Center AI Insights</span>
+  </div>
+  <div class="header-right">
+    <div class="avatar">A</div>
+  </div>
+</div>
+
+<div class="main-container">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <img src="/static/spec_large.png" alt="Spectrum">
+    </div>
+    <div class="sidebar-nav">
+      <div class="sidebar-section-header">
+        <span class="icon">&#128172;</span>
+        <span>AI Forensics</span>
+        <span class="chevron">&#9650;</span>
+      </div>
+      <div class="new-chat-link" onclick="newChat()">+ New Chat</div>
+      <div class="recent-label">
+        <span>&#128339;</span>
+        <span>Recent Conversations</span>
+      </div>
+      <div class="history-list" id="historyList">
+        <div class="history-spinner" id="historySpinner">Loading...</div>
+      </div>
+      <div class="load-more-link" id="loadMoreLink" style="display:none;" onclick="loadMoreHistory()"></div>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div class="content">
+    <div class="content-title-bar">
+      <div>
+        <h1>AI Forensics Chat</h1>
+        <div class="subtitle">Ask questions about call center data, agent performance, and customer insights</div>
+      </div>
+      <button class="new-chat-btn" onclick="newChat()">New Chat</button>
+    </div>
+
+    <div class="chat-area" id="chatArea">
+      <!-- Greeting inserted by JS -->
+    </div>
+
+    <!-- Quick Questions -->
+    <div class="quick-questions" id="quickQuestions">
+      <div class="quick-questions-label">Quick Questions:</div>
+      <div class="quick-questions-grid">
+        <div class="qq-card" onclick="askQuickQuestion('Why are customers leaving and what is driving cancellations right now?')">
+          <div class="qq-title"><span class="qq-icon">&#128201;</span> Churn Drivers</div>
+          <div class="qq-desc">Why are customers leaving and what is driving cancellations right now?</div>
+          <span class="qq-tag">Executive Insights</span>
+        </div>
+        <div class="qq-card" onclick="askQuickQuestion('Which competitors are taking our customers?')">
+          <div class="qq-title"><span class="qq-icon">&#9876;</span> Competitor Impact</div>
+          <div class="qq-desc">Which competitors are taking our customers?</div>
+          <span class="qq-tag">Executive Insights</span>
+        </div>
+        <div class="qq-card" onclick="askQuickQuestion('Which promotions are agents offering the most, are they effective?')">
+          <div class="qq-title"><span class="qq-icon">&#127942;</span> Offer Effectiveness</div>
+          <div class="qq-desc">Which promotions are agents offering the most, are they effective?</div>
+          <span class="qq-tag">Executive Insights</span>
+        </div>
+        <div class="qq-card" onclick="askQuickQuestion('What emerging customer trends should we be aware of?')">
+          <div class="qq-title"><span class="qq-icon">&#128202;</span> Emerging Trends</div>
+          <div class="qq-desc">What emerging customer trends should we be aware of?</div>
+          <span class="qq-tag">Executive Insights</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="input-bar">
+      <input type="text" id="questionInput" placeholder="Ask me about call center metrics, agent performance, or anything else..." autocomplete="off">
+      <button class="send-btn" id="sendBtn" onclick="sendQuestion()" title="Send">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
+
+    <div class="disclaimer">
+      <span class="info-icon">&#9432;</span>
+      <span><strong>Disclaimer:</strong> This output was generated by AI and may contain errors or inaccuracies. Please review carefully before using or sharing.</span>
+    </div>
+  </div>
+</div>
+
+<script>
+const chatArea = document.getElementById('chatArea');
+const questionInput = document.getElementById('questionInput');
+const sendBtn = document.getElementById('sendBtn');
+const historyList = document.getElementById('historyList');
+const historySpinner = document.getElementById('historySpinner');
+const quickQuestions = document.getElementById('quickQuestions');
+const loadMoreLink = document.getElementById('loadMoreLink');
+
+let busy = false;
+let currentConversationId = null;
+let allConversations = [];
+let visibleHistoryCount = 5;
+
+questionInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !busy) sendQuestion();
+});
+
+// --- Time helpers ---
+
+function timeAgo(ts) {
+  if (!ts) return '';
+  const diff = Date.now() - new Date(ts).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return mins + 'm ago';
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return hrs + 'h ago';
+  const days = Math.floor(hrs / 24);
+  return days + 'd ago';
+}
+
+function formatTime(date) {
+  let h = date.getHours();
+  const m = date.getMinutes().toString().padStart(2, '0');
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return h + ':' + m + ' ' + ampm;
+}
+
+// --- Greeting ---
+
+function showGreeting() {
+  const greeting = document.createElement('div');
+  greeting.className = 'greeting';
+  greeting.id = 'greeting';
+  greeting.innerHTML =
+    '<div class="bot-avatar">&#129302;</div>' +
+    '<div>' +
+      '<div class="greeting-bubble">Hello! How can I assist you today?</div>' +
+      '<div class="greeting-time">' + formatTime(new Date()) + '</div>' +
+    '</div>';
+  chatArea.appendChild(greeting);
+}
+
+function hideGreetingAndQuickQuestions() {
+  const g = document.getElementById('greeting');
+  if (g) g.remove();
+  quickQuestions.style.display = 'none';
+}
+
+// --- Sidebar ---
+
+async function loadConversations() {
+  historySpinner.style.display = 'flex';
+  try {
+    const res = await fetch('/api/conversations');
+    const data = await res.json();
+    historySpinner.style.display = 'none';
+    if (data.success && data.conversations) {
+      allConversations = data.conversations;
+      visibleHistoryCount = 5;
+      renderHistory();
+    }
+  } catch (err) {
+    historySpinner.textContent = 'Failed to load';
+  }
+}
+
+function renderHistory() {
+  historyList.querySelectorAll('.history-item').forEach(el => el.remove());
+
+  const visible = allConversations.slice(0, visibleHistoryCount);
+  visible.forEach(conv => {
+    const div = document.createElement('div');
+    div.className = 'history-item' + (conv.id === currentConversationId ? ' active' : '');
+    div.dataset.id = conv.id;
+    div.innerHTML =
+      '<div class="title">' + escapeHtml(conv.title || 'Untitled') + '</div>' +
+      '<div class="timestamp">' + timeAgo(conv.updated_at || conv.created_at) + '</div>';
+    div.onclick = () => switchChat(conv.id, conv.title);
+    historyList.appendChild(div);
+  });
+
+  const remaining = allConversations.length - visibleHistoryCount;
+  if (remaining > 0) {
+    loadMoreLink.textContent = 'Load more (' + remaining + ' more)';
+    loadMoreLink.style.display = 'block';
+  } else {
+    loadMoreLink.style.display = 'none';
+  }
+}
+
+function loadMoreHistory() {
+  visibleHistoryCount += 5;
+  renderHistory();
+}
+
+function highlightActiveChat() {
+  historyList.querySelectorAll('.history-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.id === currentConversationId);
+  });
+}
+
+function addConversationToSidebar(id, title) {
+  // Remove any existing item with same id
+  const existing = historyList.querySelector('[data-id="' + id + '"]');
+  if (existing) existing.remove();
+  // Also update allConversations
+  allConversations = allConversations.filter(c => c.id !== id);
+  allConversations.unshift({ id: id, title: title, created_at: new Date().toISOString() });
+
+  const div = document.createElement('div');
+  div.className = 'history-item active';
+  div.dataset.id = id;
+  div.innerHTML =
+    '<div class="title">' + escapeHtml(title || 'New conversation') + '</div>' +
+    '<div class="timestamp">just now</div>';
+  div.onclick = () => switchChat(id, title);
+  historyList.prepend(div);
+  highlightActiveChat();
+}
+
+// --- Chat management ---
+
+function newChat() {
+  currentConversationId = null;
+  chatArea.innerHTML = '';
+  showGreeting();
+  quickQuestions.style.display = 'block';
+  highlightActiveChat();
+  questionInput.focus();
+}
+
+async function switchChat(conversationId, title) {
+  if (busy) return;
+  currentConversationId = conversationId;
+  highlightActiveChat();
+  hideGreetingAndQuickQuestions();
+
+  chatArea.innerHTML = '<div class="loading-messages">Loading messages...</div>';
+
+  try {
+    const res = await fetch('/api/conversations/' + conversationId + '/messages');
+    const data = await res.json();
+    chatArea.innerHTML = '';
+
+    if (data.success === false) {
+      chatArea.innerHTML = '<div class="loading-messages error-text">Error loading messages: ' + escapeHtml(data.error || 'Unknown error') + '</div>';
+    } else if (data.success && data.messages && data.messages.length > 0) {
+      data.messages.forEach(msg => {
+        const msgDiv = addMessage(msg.role, msg.content || '');
+        if (msg.role === 'assistant' && msg.sql_query) {
+          const details = document.createElement('details');
+          details.className = 'sql-toggle';
+          details.innerHTML = '<summary>View SQL</summary><pre>' + formatSQL(escapeHtml(msg.sql_query)) + '</pre>';
+          msgDiv.querySelector('.bubble').appendChild(details);
+        }
+      });
+    } else {
+      chatArea.innerHTML = '<div class="loading-messages">No messages found</div>';
+    }
+  } catch (err) {
+    chatArea.innerHTML = '<div class="loading-messages">Failed to load messages</div>';
+  }
+
+  questionInput.focus();
+}
+
+// --- Messages ---
+
+function askQuickQuestion(text) {
+  questionInput.value = text;
+  sendQuestion();
+}
+
+function addMessage(role, content) {
+  const div = document.createElement('div');
+  div.className = 'message ' + role;
+  const formatted = role === 'assistant' ? formatMarkdown(content) : escapeHtml(content);
+  const avatarContent = role === 'user' ? 'A' : '&#129302;';
+  div.innerHTML =
+    '<div class="msg-avatar">' + avatarContent + '</div>' +
+    '<div class="bubble">' + formatted + '</div>';
+  chatArea.appendChild(div);
+  chatArea.scrollTop = chatArea.scrollHeight;
+  return div;
+}
+
+function showTyping() {
+  const div = document.createElement('div');
+  div.className = 'message assistant';
+  div.id = 'typing';
+  div.innerHTML =
+    '<div class="msg-avatar">&#129302;</div>' +
+    '<div class="bubble"><div class="typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>';
+  chatArea.appendChild(div);
+  chatArea.scrollTop = chatArea.scrollHeight;
+}
+
+function removeTyping() {
+  const el = document.getElementById('typing');
+  if (el) el.remove();
+}
+
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function formatMarkdown(text) {
+  let html = escapeHtml(text);
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  const lines = html.split('\n');
+  let out = '';
+  let inList = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const listMatch = line.match(/^- (.+)/);
+    if (listMatch) {
+      if (!inList) { out += '<ul>'; inList = true; }
+      out += '<li>' + listMatch[1] + '</li>';
+    } else {
+      if (inList) { out += '</ul>'; inList = false; }
+      if (line.trim() === '') {
+        if (out.length && !out.endsWith('</ul>') && !out.endsWith('</p>')) out += '</p><p>';
+      } else {
+        out += (out.length && !out.endsWith('<p>') && !out.endsWith('</ul>') && !out.endsWith('</p>') ? '<br>' : '') + line;
+      }
+    }
+  }
+  if (inList) out += '</ul>';
+  return '<p>' + out + '</p>';
+}
+
+function formatSQL(sql) {
+  const keywords = ['SELECT', 'FROM', 'WHERE', 'GROUP BY', 'ORDER BY', 'HAVING', 'LIMIT',
+    'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN', 'OUTER JOIN', 'CROSS JOIN', 'JOIN', 'ON', 'AND', 'OR', 'AS',
+    'INSERT', 'UPDATE', 'SET', 'DELETE', 'CREATE', 'UNION ALL', 'UNION', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END'];
+  const sorted = keywords.slice().sort((a, b) => b.length - a.length);
+  const re = new RegExp('\\b(' + sorted.join('|') + ')\\b', 'gi');
+  const topLevel = new Set(['SELECT','FROM','WHERE','GROUP BY','ORDER BY','HAVING','LIMIT',
+    'LEFT JOIN','RIGHT JOIN','INNER JOIN','OUTER JOIN','CROSS JOIN','JOIN',
+    'INSERT','UPDATE','SET','DELETE','CREATE','UNION ALL','UNION']);
+  let formatted = sql.replace(re, (m) => {
+    const upper = m.toUpperCase();
+    const prefix = topLevel.has(upper) ? '\n' : '\n  ';
+    return prefix + '<span class="sql-kw">' + upper + '</span>';
+  });
+  return formatted.trim();
+}
+
+async function sendQuestion() {
+  const q = questionInput.value.trim();
+  if (!q || busy) return;
+
+  hideGreetingAndQuickQuestions();
+
+  busy = true;
+  sendBtn.disabled = true;
+  questionInput.value = '';
+
+  addMessage('user', q);
+  showTyping();
+
+  try {
+    const body = { question: q };
+    if (currentConversationId) {
+      body.conversation_id = currentConversationId;
+    }
+
+    const res = await fetch('/api/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    removeTyping();
+
+    if (data.conversation_id) {
+      const isNew = !currentConversationId;
+      currentConversationId = data.conversation_id;
+      if (isNew) {
+        addConversationToSidebar(data.conversation_id, q.substring(0, 60));
+      }
+      highlightActiveChat();
+    }
+
+    if (data.success) {
+      const msgDiv = addMessage('assistant', data.response || '(No response text)');
+      if (data.sql_query) {
+        const details = document.createElement('details');
+        details.className = 'sql-toggle';
+        details.innerHTML = '<summary>View SQL</summary><pre>' + formatSQL(escapeHtml(data.sql_query)) + '</pre>';
+        msgDiv.querySelector('.bubble').appendChild(details);
+      }
+      if (data.elapsed_seconds) {
+        const el = document.createElement('div');
+        el.className = 'elapsed';
+        el.textContent = 'Completed in ' + data.elapsed_seconds.toFixed(1) + 's';
+        msgDiv.querySelector('.bubble').appendChild(el);
+      }
+    } else {
+      const msgDiv = addMessage('assistant', '');
+      msgDiv.querySelector('.bubble').innerHTML = '<span class="error-text">Error: ' + escapeHtml(data.error || 'Unknown error') + '</span>';
+    }
+  } catch (err) {
+    removeTyping();
+    const msgDiv = addMessage('assistant', '');
+    msgDiv.querySelector('.bubble').innerHTML = '<span class="error-text">Network error: ' + escapeHtml(err.message) + '</span>';
+  }
+
+  busy = false;
+  sendBtn.disabled = false;
+  questionInput.focus();
+}
+
+// --- Init ---
+showGreeting();
+loadConversations();
+</script>
+
+</body>
+</html>

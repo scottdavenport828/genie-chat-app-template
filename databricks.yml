@@ -1,0 +1,16 @@
+bundle:
+  name: genie-chat-app
+
+workspace:
+  profile: <YOUR_CLI_PROFILE>
+
+resources:
+  apps:
+    genie-chat-app:
+      name: genie-chat-app
+      description: "Genie-powered analytics chat application"
+      source_code_path: .
+
+targets:
+  dev:
+    default: true

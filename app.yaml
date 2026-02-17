@@ -1,0 +1,6 @@
+command: ["gunicorn", "app:app", "--bind", "0.0.0.0:8000", "--workers", "1", "--threads", "12", "--worker-class", "gthread", "--timeout", "120"]
+env:
+  - name: GENIE_SPACE_ID
+    value: "<YOUR_GENIE_SPACE_ID>"
+  - name: FLASK_PORT
+    value: "8000"
