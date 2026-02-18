@@ -79,13 +79,13 @@
   /* Messages */
   .message { display: flex; gap: 10px; max-width: min(85%, 700px); }
   .message.user { align-self: flex-end; flex-direction: row-reverse; }
-  .message.assistant { align-self: flex-start; }
+  .message.assistant { align-self: flex-start; max-width: min(95%, 1100px); }
   .msg-avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
   .message.user .msg-avatar { background: #002139; color: #fff; font-weight: 600; }
   .message.assistant .msg-avatar { background: #1976d2; color: #fff; font-size: 16px; }
-  .bubble { padding: 12px 16px; border-radius: 12px; font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; }
+  .bubble { padding: 12px 16px; border-radius: 12px; font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; min-width: 0; }
   .message.user .bubble { background: #002139; color: #fff; border-bottom-right-radius: 4px; }
-  .message.assistant .bubble { background: #fff; color: #333; border: 1px solid #e0e0e0; border-bottom-left-radius: 4px; white-space: normal; }
+  .message.assistant .bubble { background: #fff; color: #333; border: 1px solid #e0e0e0; border-bottom-left-radius: 4px; white-space: normal; overflow-x: hidden; overflow-y: auto; max-height: calc(100vh - 260px); }
   .bubble strong { font-weight: 600; }
   .bubble ul { margin: 8px 0; padding-left: 20px; }
   .bubble li { margin-bottom: 4px; }
@@ -141,12 +141,12 @@
   .feedback button[data-rating="negative"].selected { border-color: #c0392b; background: #c0392b; color: #fff; }
 
   /* #2 - Data table */
-  .data-table-wrapper { margin-top: 10px; max-height: clamp(200px, 30vh, 400px); overflow: auto; border: 1px solid #e0e0e0; border-radius: 6px; }
+  .data-table-wrapper { margin-top: 10px; max-height: clamp(160px, 22vh, 320px); overflow: auto; border: 1px solid #e0e0e0; border-radius: 6px; }
   .data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
   .data-table th { background: #f5f5f5; position: sticky; top: 0; padding: 6px 10px; text-align: left; border-bottom: 2px solid #ddd; font-weight: 600; white-space: nowrap; }
   .data-table td { padding: 4px 10px; border-bottom: 1px solid #eee; white-space: nowrap; }
   .data-table tr:hover td { background: #fafafa; }
-  .chart-container { margin-top: 10px; max-height: clamp(200px, 30vh, 400px); position: relative; }
+  .chart-container { margin-top: 10px; max-height: clamp(160px, 22vh, 320px); position: relative; }
   .download-bar { display: flex; gap: 8px; margin-top: 8px; }
   .download-bar button { background: none; border: 1px solid #ddd; border-radius: 4px; padding: 3px 10px; cursor: pointer; font-size: 11px; color: #002139; }
   .download-bar button:hover { background: #f0f0f0; }
@@ -188,6 +188,7 @@
     .sidebar { width: 280px; }
     .sidebar-logo { min-height: 60px; padding: 14px; }
     .sidebar-logo img { max-width: 150px; }
+    .message.assistant .bubble { max-height: calc(100dvh - 220px); }
   }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
