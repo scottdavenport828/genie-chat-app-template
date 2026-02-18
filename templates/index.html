@@ -39,7 +39,7 @@
   .history-item { padding: 12px 12px; border-radius: 6px; cursor: pointer; font-size: 14px; line-height: 1.4; transition: background .15s; margin-bottom: 0; color: #333; }
   .history-item:hover { background: #f0f0f0; }
   .history-item.active { background: #e8e8e8; }
-  .history-item .title { white-space: nowrap; }
+  .history-item .title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .history-item .timestamp { display: none; }
   .history-spinner { display: flex; align-items: center; justify-content: center; padding: 24px; color: #999; font-size: 13px; }
 
@@ -61,7 +61,7 @@
 
   /* Bot greeting */
   .greeting { display: flex; gap: 12px; align-items: flex-start; }
-  .bot-avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #0097a7, #00796b); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; flex-shrink: 0; }
+  .bot-avatar { width: 36px; height: 36px; border-radius: 50%; background: #1976d2; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; flex-shrink: 0; }
   .greeting-bubble { background: #fff; border: 1px solid #e0e0e0; border-radius: 12px; border-bottom-left-radius: 4px; padding: 14px 18px; font-size: 14px; color: #333; line-height: 1.5; max-width: 480px; }
   .greeting-time { font-size: 11px; color: #aaa; margin-top: 6px; }
 
@@ -82,7 +82,7 @@
   .message.assistant { align-self: flex-start; }
   .msg-avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
   .message.user .msg-avatar { background: #002139; color: #fff; font-weight: 600; }
-  .message.assistant .msg-avatar { background: linear-gradient(135deg, #0097a7, #00796b); color: #fff; font-size: 16px; }
+  .message.assistant .msg-avatar { background: #1976d2; color: #fff; font-size: 16px; }
   .bubble { padding: 12px 16px; border-radius: 12px; font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; }
   .message.user .bubble { background: #002139; color: #fff; border-bottom-right-radius: 4px; }
   .message.assistant .bubble { background: #fff; color: #333; border: 1px solid #e0e0e0; border-bottom-left-radius: 4px; white-space: normal; }
@@ -127,16 +127,18 @@
   .loading-messages { display: flex; align-items: center; justify-content: center; flex: 1; color: #999; font-size: 14px; }
 
   /* #13 - Delete history item */
-  .history-item { position: relative; padding-right: 32px; }
-  .history-delete { display: none; position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #999; font-size: 14px; padding: 4px; }
+  .history-item { position: relative; padding-right: 32px; overflow: hidden; }
+  .history-delete { display: none; position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #c0392b; font-size: 14px; padding: 4px; }
   .history-delete:hover { color: #c0392b; }
   .history-item:hover .history-delete { display: block; }
 
   /* #3 - Feedback buttons */
   .feedback { display: flex; gap: 8px; margin-top: 8px; }
-  .feedback button { background: none; border: 1px solid #ddd; border-radius: 4px; padding: 2px 8px; cursor: pointer; font-size: 14px; color: #666; transition: all .15s; }
-  .feedback button:hover { border-color: #002139; color: #002139; }
-  .feedback button.selected { border-color: #002139; background: #002139; color: #fff; }
+  .feedback button { background: none; border: 1px solid #ddd; border-radius: 4px; padding: 2px 8px; cursor: pointer; font-size: 14px; color: #999; transition: all .15s; }
+  .feedback button[data-rating="positive"]:hover { border-color: #27ae60; color: #27ae60; }
+  .feedback button[data-rating="positive"].selected { border-color: #27ae60; background: #27ae60; color: #fff; }
+  .feedback button[data-rating="negative"]:hover { border-color: #c0392b; color: #c0392b; }
+  .feedback button[data-rating="negative"].selected { border-color: #c0392b; background: #c0392b; color: #fff; }
 
   /* #2 - Data table */
   .data-table-wrapper { margin-top: 10px; max-height: 300px; overflow: auto; border: 1px solid #e0e0e0; border-radius: 6px; }
@@ -289,7 +291,7 @@ function showGreeting() {
   greeting.className = 'greeting';
   greeting.id = 'greeting';
   greeting.innerHTML =
-    '<div class="bot-avatar">&#129302;</div>' +
+    '<div class="bot-avatar"><svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M20 9V7c0-1.1-.9-2-2-2h-3c0-1.66-1.34-3-3-3S9 3.34 9 5H6c-1.1 0-2 .9-2 2v2c-1.66 0-3 1.34-3 3s1.34 3 3 3v4c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-4c1.66 0 3-1.34 3-3s-1.34-3-3-3M7.5 11.5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5S9.83 13 9 13s-1.5-.67-1.5-1.5M16 17H8v-2h8zm-1-4c-.83 0-1.5-.67-1.5-1.5S14.17 10 15 10s1.5.67 1.5 1.5S15.83 13 15 13"></path></svg></div>' +
     '<div>' +
       '<div class="greeting-bubble">Hello! How can I assist you today?</div>' +
       '<div class="greeting-time">' + formatTime(new Date()) + '</div>' +
@@ -332,7 +334,7 @@ function renderHistory() {
     div.innerHTML =
       '<div class="title">' + escapeHtml(conv.title || 'Untitled') + '</div>' +
       '<div class="timestamp">' + timeAgo(conv.updated_at || conv.created_at) + '</div>' +
-      '<button class="history-delete" onclick="event.stopPropagation(); deleteChat(\'' + conv.id + '\')" title="Delete">&#128465;</button>';
+      '<button class="history-delete" onclick="event.stopPropagation(); deleteChat(\'' + conv.id + '\')" title="Delete"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button>';
     div.onclick = () => switchChat(conv.id, conv.title);
     historyList.appendChild(div);
   });
@@ -371,7 +373,7 @@ function addConversationToSidebar(id, title) {
   div.innerHTML =
     '<div class="title">' + escapeHtml(title || 'New conversation') + '</div>' +
     '<div class="timestamp">just now</div>' +
-    '<button class="history-delete" onclick="event.stopPropagation(); deleteChat(\'' + id + '\')" title="Delete">&#128465;</button>';
+    '<button class="history-delete" onclick="event.stopPropagation(); deleteChat(\'' + id + '\')" title="Delete"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button>';
   div.onclick = () => switchChat(id, title);
   historyList.prepend(div);
   highlightActiveChat();
@@ -443,7 +445,7 @@ function addMessage(role, content) {
   const div = document.createElement('div');
   div.className = 'message ' + role;
   const formatted = role === 'assistant' ? formatMarkdown(content) : escapeHtml(content);
-  const avatarContent = role === 'user' ? '{{ (user_name or user_email or "A")[0] | upper }}' : '&#129302;';
+  const avatarContent = role === 'user' ? '{{ (user_name or user_email or "A")[0] | upper }}' : '<svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M20 9V7c0-1.1-.9-2-2-2h-3c0-1.66-1.34-3-3-3S9 3.34 9 5H6c-1.1 0-2 .9-2 2v2c-1.66 0-3 1.34-3 3s1.34 3 3 3v4c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-4c1.66 0 3-1.34 3-3s-1.34-3-3-3M7.5 11.5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5S9.83 13 9 13s-1.5-.67-1.5-1.5M16 17H8v-2h8zm-1-4c-.83 0-1.5-.67-1.5-1.5S14.17 10 15 10s1.5.67 1.5 1.5S15.83 13 15 13"></path></svg>';
   div.innerHTML =
     '<div class="msg-avatar">' + avatarContent + '</div>' +
     '<div class="bubble">' + formatted + '</div>';
@@ -457,7 +459,7 @@ function showTyping() {
   div.className = 'message assistant';
   div.id = 'typing';
   div.innerHTML =
-    '<div class="msg-avatar">&#129302;</div>' +
+    '<div class="msg-avatar"><svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M20 9V7c0-1.1-.9-2-2-2h-3c0-1.66-1.34-3-3-3S9 3.34 9 5H6c-1.1 0-2 .9-2 2v2c-1.66 0-3 1.34-3 3s1.34 3 3 3v4c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-4c1.66 0 3-1.34 3-3s-1.34-3-3-3M7.5 11.5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5S9.83 13 9 13s-1.5-.67-1.5-1.5M16 17H8v-2h8zm-1-4c-.83 0-1.5-.67-1.5-1.5S14.17 10 15 10s1.5.67 1.5 1.5S15.83 13 15 13"></path></svg></div>' +
     '<div class="bubble"><div class="typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>';
   chatArea.appendChild(div);
   chatArea.scrollTop = chatArea.scrollHeight;
