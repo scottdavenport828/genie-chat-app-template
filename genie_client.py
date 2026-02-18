@@ -49,6 +49,7 @@ class GenieResult:
     elapsed_seconds: Optional[float] = None
     conversation_id: Optional[str] = None
     message_id: Optional[str] = None
+    followup: Optional[str] = None
 
     def get_numeric_value(self) -> Optional[float]:
         """Extract a single numeric value from the response."""
@@ -453,6 +454,7 @@ class GenieClient:
                                 "sql_query": result.sql_query,
                                 "message_id": getattr(msg, 'id', None),
                                 "timestamp": getattr(msg, 'last_updated_timestamp', None),
+                                "followup": result.followup,
                             })
 
             # Sort by timestamp for correct ordering
@@ -466,6 +468,37 @@ class GenieClient:
         except Exception as e:
             logger.exception(f"Error getting conversation messages: {e}")
             return [], str(e)
+
+    _FOLLOWUP_PREFIXES = (
+        'would you like', 'would you prefer', 'would you also like',
+        'would it be helpful', 'do you want', 'do you need',
+        'shall i', 'should i', 'is there', 'are there',
+    )
+
+    @staticmethod
+    def _split_followup(text):
+        """Split a trailing follow-up question from response text.
+
+        Genie often appends a suggestion like "Would you like to see X?"
+        at the end of the answer text within the same attachment.  Scan
+        backwards through lines to find the start of such a question and
+        return (main_text, followup_text).
+        """
+        if not text or '?' not in text:
+            return text, None
+        lines = text.split('\n')
+        for i in range(len(lines) - 1, -1, -1):
+            stripped = lines[i].strip()
+            if not stripped:
+                continue
+            lower = stripped.lower()
+            if any(lower.startswith(p) for p in GenieClient._FOLLOWUP_PREFIXES):
+                main = '\n'.join(lines[:i]).strip()
+                followup = '\n'.join(lines[i:]).strip()
+                if main:
+                    return main, followup
+            break  # only inspect the last non-empty line
+        return text, None
 
     def _extract_result(self, message) -> GenieResult:
         """Extract structured result from a completed Genie message."""
@@ -488,15 +521,25 @@ class GenieClient:
                         else:
                             other_texts.append(attachment.text.content)
 
-            raw_response = "\n".join(query_texts + other_texts)
+            if query_texts:
+                raw_response = "\n".join(query_texts)
+                followup = "\n".join(other_texts) if other_texts else None
+            else:
+                raw_response = "\n".join(other_texts)
+                followup = None
 
             if not raw_response.strip() and hasattr(message, 'content'):
                 raw_response = str(message.content)
 
+            # If no followup from attachments, try to split one from the text
+            if not followup:
+                raw_response, followup = self._split_followup(raw_response)
+
             return GenieResult(
                 success=True,
                 raw_response=raw_response.strip(),
-                sql_query=sql_query
+                sql_query=sql_query,
+                followup=followup.strip() if followup else None
             )
 
         except Exception as e:

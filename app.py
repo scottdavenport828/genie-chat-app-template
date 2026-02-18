@@ -77,6 +77,7 @@ def ask():
         "error": result.error,
         "conversation_id": result.conversation_id,
         "message_id": result.message_id,
+        "followup": result.followup,
     })
 
 
