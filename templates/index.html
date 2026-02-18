@@ -125,7 +125,31 @@
 
   /* Loading messages spinner */
   .loading-messages { display: flex; align-items: center; justify-content: center; flex: 1; color: #999; font-size: 14px; }
+
+  /* #13 - Delete history item */
+  .history-item { position: relative; padding-right: 32px; }
+  .history-delete { display: none; position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #999; font-size: 14px; padding: 4px; }
+  .history-delete:hover { color: #c0392b; }
+  .history-item:hover .history-delete { display: block; }
+
+  /* #3 - Feedback buttons */
+  .feedback { display: flex; gap: 8px; margin-top: 8px; }
+  .feedback button { background: none; border: 1px solid #ddd; border-radius: 4px; padding: 2px 8px; cursor: pointer; font-size: 14px; color: #666; transition: all .15s; }
+  .feedback button:hover { border-color: #002139; color: #002139; }
+  .feedback button.selected { border-color: #002139; background: #002139; color: #fff; }
+
+  /* #2 - Data table */
+  .data-table-wrapper { margin-top: 10px; max-height: 300px; overflow: auto; border: 1px solid #e0e0e0; border-radius: 6px; }
+  .data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .data-table th { background: #f5f5f5; position: sticky; top: 0; padding: 6px 10px; text-align: left; border-bottom: 2px solid #ddd; font-weight: 600; white-space: nowrap; }
+  .data-table td { padding: 4px 10px; border-bottom: 1px solid #eee; white-space: nowrap; }
+  .data-table tr:hover td { background: #fafafa; }
+  .chart-container { margin-top: 10px; max-height: 300px; position: relative; }
+  .download-bar { display: flex; gap: 8px; margin-top: 8px; }
+  .download-bar button { background: none; border: 1px solid #ddd; border-radius: 4px; padding: 3px 10px; cursor: pointer; font-size: 11px; color: #002139; }
+  .download-bar button:hover { background: #f0f0f0; }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 </head>
 <body>
 
@@ -306,7 +330,8 @@ function renderHistory() {
     div.dataset.id = conv.id;
     div.innerHTML =
       '<div class="title">' + escapeHtml(conv.title || 'Untitled') + '</div>' +
-      '<div class="timestamp">' + timeAgo(conv.updated_at || conv.created_at) + '</div>';
+      '<div class="timestamp">' + timeAgo(conv.updated_at || conv.created_at) + '</div>' +
+      '<button class="history-delete" onclick="event.stopPropagation(); deleteChat(\'' + conv.id + '\')" title="Delete">&#128465;</button>';
     div.onclick = () => switchChat(conv.id, conv.title);
     historyList.appendChild(div);
   });
@@ -344,7 +369,8 @@ function addConversationToSidebar(id, title) {
   div.dataset.id = id;
   div.innerHTML =
     '<div class="title">' + escapeHtml(title || 'New conversation') + '</div>' +
-    '<div class="timestamp">just now</div>';
+    '<div class="timestamp">just now</div>' +
+    '<button class="history-delete" onclick="event.stopPropagation(); deleteChat(\'' + id + '\')" title="Delete">&#128465;</button>';
   div.onclick = () => switchChat(id, title);
   historyList.prepend(div);
   highlightActiveChat();
@@ -384,6 +410,10 @@ async function switchChat(conversationId, title) {
           details.className = 'sql-toggle';
           details.innerHTML = '<summary>View SQL</summary><pre>' + formatSQL(escapeHtml(msg.sql_query)) + '</pre>';
           msgDiv.querySelector('.bubble').appendChild(details);
+          loadQueryResult(msgDiv, conversationId, msg.message_id);
+        }
+        if (msg.role === 'assistant') {
+          addFeedbackButtons(msgDiv, conversationId, msg.message_id);
         }
       });
     } else {
@@ -523,6 +553,7 @@ async function sendQuestion() {
         details.className = 'sql-toggle';
         details.innerHTML = '<summary>View SQL</summary><pre>' + formatSQL(escapeHtml(data.sql_query)) + '</pre>';
         msgDiv.querySelector('.bubble').appendChild(details);
+        loadQueryResult(msgDiv, data.conversation_id, data.message_id);
       }
       if (data.elapsed_seconds) {
         const el = document.createElement('div');
@@ -530,6 +561,7 @@ async function sendQuestion() {
         el.textContent = 'Completed in ' + data.elapsed_seconds.toFixed(1) + 's';
         msgDiv.querySelector('.bubble').appendChild(el);
       }
+      addFeedbackButtons(msgDiv, data.conversation_id, data.message_id);
     } else {
       const msgDiv = addMessage('assistant', '');
       msgDiv.querySelector('.bubble').innerHTML = '<span class="error-text">Error: ' + escapeHtml(data.error || 'Unknown error') + '</span>';
@@ -543,6 +575,168 @@ async function sendQuestion() {
   busy = false;
   sendBtn.disabled = false;
   questionInput.focus();
+}
+
+// --- #13: Delete conversation ---
+
+async function deleteChat(conversationId) {
+  if (!confirm('Delete this conversation?')) return;
+  try {
+    const res = await fetch('/api/conversations/' + conversationId, { method: 'DELETE' });
+    const data = await res.json();
+    if (data.success) {
+      allConversations = allConversations.filter(c => c.id !== conversationId);
+      if (currentConversationId === conversationId) newChat();
+      renderHistory();
+    }
+  } catch (err) {
+    console.error('Delete failed:', err);
+  }
+}
+
+// --- #3: Feedback ---
+
+function addFeedbackButtons(msgDiv, conversationId, messageId) {
+  if (!conversationId || !messageId) return;
+  const fb = document.createElement('div');
+  fb.className = 'feedback';
+  fb.innerHTML =
+    '<button data-rating="positive" onclick="sendFeedback(this, \'' + conversationId + '\', \'' + messageId + '\', \'positive\')" title="Helpful">&#128077;</button>' +
+    '<button data-rating="negative" onclick="sendFeedback(this, \'' + conversationId + '\', \'' + messageId + '\', \'negative\')" title="Not helpful">&#128078;</button>';
+  msgDiv.querySelector('.bubble').appendChild(fb);
+}
+
+async function sendFeedback(btn, conversationId, messageId, rating) {
+  const container = btn.parentElement;
+  // If already selected, ignore
+  if (container.querySelector('.selected')) return;
+  btn.classList.add('selected');
+  try {
+    await fetch('/api/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conversation_id: conversationId, message_id: messageId, rating: rating })
+    });
+  } catch (err) {
+    console.error('Feedback failed:', err);
+  }
+}
+
+// --- #2: Visualizations + Download ---
+
+const NUMERIC_TYPES = new Set(['INT', 'BIGINT', 'SMALLINT', 'TINYINT', 'FLOAT', 'DOUBLE', 'DECIMAL', 'LONG', 'SHORT', 'BYTE']);
+
+function isNumericType(typeName) {
+  return NUMERIC_TYPES.has(typeName.toUpperCase());
+}
+
+async function loadQueryResult(msgDiv, conversationId, messageId) {
+  if (!conversationId || !messageId) return;
+  try {
+    const res = await fetch('/api/conversations/' + conversationId + '/messages/' + messageId + '/result');
+    const data = await res.json();
+    if (!data.success || !data.columns || !data.rows || data.rows.length === 0) return;
+
+    const bubble = msgDiv.querySelector('.bubble');
+    const columns = data.columns;
+    const rows = data.rows;
+
+    // Build data table
+    const wrapper = document.createElement('div');
+    wrapper.className = 'data-table-wrapper';
+    let tableHtml = '<table class="data-table"><thead><tr>';
+    columns.forEach(c => { tableHtml += '<th>' + escapeHtml(c.name) + '</th>'; });
+    tableHtml += '</tr></thead><tbody>';
+    rows.forEach(row => {
+      tableHtml += '<tr>';
+      row.forEach(val => { tableHtml += '<td>' + escapeHtml(val !== null && val !== undefined ? String(val) : '') + '</td>'; });
+      tableHtml += '</tr>';
+    });
+    tableHtml += '</tbody></table>';
+    wrapper.innerHTML = tableHtml;
+    bubble.appendChild(wrapper);
+
+    // Chart: render if <=20 rows, >=1 numeric col, >=1 label col
+    let chartCanvas = null;
+    if (rows.length <= 20 && rows.length > 0) {
+      const numericIndices = [];
+      const labelIndices = [];
+      columns.forEach((c, i) => {
+        if (isNumericType(c.type)) numericIndices.push(i);
+        else labelIndices.push(i);
+      });
+
+      if (numericIndices.length > 0 && labelIndices.length > 0) {
+        const labelIdx = labelIndices[0];
+        const labels = rows.map(r => r[labelIdx] || '');
+        const chartContainer = document.createElement('div');
+        chartContainer.className = 'chart-container';
+        chartCanvas = document.createElement('canvas');
+        chartContainer.appendChild(chartCanvas);
+        bubble.appendChild(chartContainer);
+
+        const colors = ['#002139', '#0097a7', '#00796b', '#c0392b', '#8e44ad', '#e67e22', '#2980b9', '#27ae60'];
+        const datasets = numericIndices.map((ni, di) => ({
+          label: columns[ni].name,
+          data: rows.map(r => parseFloat(r[ni]) || 0),
+          backgroundColor: colors[di % colors.length] + 'cc',
+          borderColor: colors[di % colors.length],
+          borderWidth: 1
+        }));
+
+        new Chart(chartCanvas, {
+          type: 'bar',
+          data: { labels: labels, datasets: datasets },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: datasets.length > 1 } },
+            scales: { y: { beginAtZero: true } }
+          }
+        });
+      }
+    }
+
+    // Download bar
+    const downloadBar = document.createElement('div');
+    downloadBar.className = 'download-bar';
+
+    const csvBtn = document.createElement('button');
+    csvBtn.textContent = 'Download CSV';
+    csvBtn.onclick = function() { downloadCSV(columns, rows); };
+    downloadBar.appendChild(csvBtn);
+
+    if (chartCanvas) {
+      const chartBtn = document.createElement('button');
+      chartBtn.textContent = 'Download Chart';
+      chartBtn.onclick = function() { downloadChart(chartCanvas); };
+      downloadBar.appendChild(chartBtn);
+    }
+    bubble.appendChild(downloadBar);
+
+  } catch (err) {
+    console.error('Failed to load query result:', err);
+  }
+}
+
+function downloadCSV(columns, rows) {
+  const header = columns.map(c => '"' + c.name.replace(/"/g, '""') + '"').join(',');
+  const body = rows.map(r =>
+    r.map(v => '"' + String(v !== null && v !== undefined ? v : '').replace(/"/g, '""') + '"').join(',')
+  ).join('\n');
+  const blob = new Blob([header + '\n' + body], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'query_result.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function downloadChart(canvas) {
+  const a = document.createElement('a');
+  a.href = canvas.toDataURL('image/png');
+  a.download = 'chart.png';
+  a.click();
 }
 
 // --- Init ---

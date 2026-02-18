@@ -295,6 +295,61 @@ class GenieClient:
             logger.exception(f"Error listing conversations: {e}")
             return []
 
+    def get_query_result(self, conversation_id: str, message_id: str) -> Optional[Dict[str, Any]]:
+        """Get the query result data (columns + rows) for a completed message."""
+        try:
+            def get_result():
+                return self.client.genie.get_message_query_result(
+                    space_id=self.space_id, conversation_id=conversation_id, message_id=message_id
+                )
+            response = self._retry_with_backoff(get_result, "get_message_query_result")
+            stmt = response.statement_response
+            if not stmt or not stmt.manifest or not stmt.result:
+                return None
+            columns = [
+                {"name": c.name, "type": str(c.type_name.value) if c.type_name else "STRING"}
+                for c in (stmt.manifest.schema.columns or [])
+            ]
+            rows = stmt.result.data_array or []
+            return {
+                "columns": columns,
+                "rows": rows,
+                "total_rows": stmt.manifest.total_row_count,
+            }
+        except Exception as e:
+            logger.exception(f"Error getting query result: {e}")
+            return None
+
+    def send_feedback(self, conversation_id: str, message_id: str, rating: str) -> bool:
+        """Send thumbs up/down feedback on a Genie message."""
+        try:
+            from databricks.sdk.service.dashboards import GenieFeedbackRating
+            rating_enum = GenieFeedbackRating.POSITIVE if rating == "positive" else GenieFeedbackRating.NEGATIVE
+
+            def send_fb():
+                return self.client.genie.send_message_feedback(
+                    space_id=self.space_id, conversation_id=conversation_id,
+                    message_id=message_id, rating=rating_enum
+                )
+            self._retry_with_backoff(send_fb, "send_message_feedback")
+            return True
+        except Exception as e:
+            logger.exception(f"Error sending feedback: {e}")
+            return False
+
+    def delete_conversation(self, conversation_id: str) -> bool:
+        """Delete a conversation from the Genie space."""
+        try:
+            def delete_conv():
+                return self.client.genie.delete_conversation(
+                    space_id=self.space_id, conversation_id=conversation_id
+                )
+            self._retry_with_backoff(delete_conv, "delete_conversation")
+            return True
+        except Exception as e:
+            logger.exception(f"Error deleting conversation: {e}")
+            return False
+
     def get_conversation_messages(self, conversation_id: str):
         """Get all messages in a conversation with extracted results.
 
@@ -332,6 +387,7 @@ class GenieClient:
                                 "role": "assistant",
                                 "content": result.raw_response or "(Query executed)",
                                 "sql_query": result.sql_query,
+                                "message_id": getattr(msg, 'id', None),
                                 "timestamp": getattr(msg, 'last_updated_timestamp', None),
                             })
 

@@ -4,3 +4,7 @@ env:
     value: "<YOUR_GENIE_SPACE_ID>"
   - name: FLASK_PORT
     value: "8000"
+  - name: DATABRICKS_WAREHOUSE_ID
+    value: "<YOUR_WAREHOUSE_ID>"
+  - name: CONVERSATION_TABLE
+    value: "<YOUR_CATALOG.SCHEMA.TABLE>"
