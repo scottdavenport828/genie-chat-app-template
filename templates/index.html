@@ -9,7 +9,7 @@
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; height: 100vh; height: 100dvh; display: flex; flex-direction: column; background: #f5f5f5; }
 
   /* Header */
-  .header { background: #002139; color: #fff; padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; }
+  .header { background: #002139; color: #fff; padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; height: 70px; }
   .header-left { display: flex; align-items: center; gap: 8px; }
   .header-left .header-title { font-size: 15px; font-weight: 500; }
   .header-right .avatar { width: 32px; height: 32px; border-radius: 50%; border: 2px solid #fff; background: #fff; color: #002139; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; }
@@ -18,10 +18,11 @@
   .main-container { display: flex; flex: 1; overflow: hidden; }
 
   /* Sidebar */
-  .sidebar { width: clamp(260px, 22vw, 360px); display: flex; flex-direction: column; flex-shrink: 0; border-right: 1px solid #e0e0e0; }
+  .sidebar { width: clamp(260px, 22vw, 360px); display: flex; flex-direction: column; flex-shrink: 0; border-right: 1px solid #e0e0e0; transition: width 0.3s ease, opacity 0.3s ease; overflow: hidden; min-width: 0; }
+  .main-container.sidebar-collapsed .sidebar { width: 0; border-right: none; opacity: 0; pointer-events: none; }
 
   /* Sidebar logo area */
-  .sidebar-logo { background: #fff; padding: 20px; border-bottom: 1px solid #e0e0e0; display: flex; align-items: center; justify-content: center; height: auto; min-height: 70px; }
+  .sidebar-logo { background: #fff; padding: 20px; border-bottom: 1px solid #e0e0e0; display: flex; align-items: center; justify-content: center; height: 70px; }
   .sidebar-logo img { max-width: 180px; height: auto; }
 
   /* Sidebar nav area */
@@ -29,6 +30,11 @@
 
   .sidebar-section-header { margin: 0 16px 8px; padding: 10px 16px; display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 600; cursor: pointer; background: #002139; color: #fff; border-radius: 8px; }
   .sidebar-section-header .icon { font-size: 16px; }
+  .section-caret { margin-left: auto; font-size: 12px; transition: transform 0.25s ease; }
+  .section-caret.collapsed { transform: rotate(180deg); }
+
+  .sidebar-section-body { display: flex; flex-direction: column; flex: 1; overflow: hidden; transition: max-height 0.3s ease, opacity 0.25s ease; max-height: 2000px; opacity: 1; }
+  .sidebar-section-body.collapsed { max-height: 0; opacity: 0; }
 
   .new-chat-link { padding: 10px 20px; font-size: 14px; color: #333; cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: 500; }
   .new-chat-link:hover { color: #002139; }
@@ -49,10 +55,10 @@
   /* Content area */
   .content { flex: 1; display: flex; flex-direction: column; min-width: 0; background: #fafafa; }
 
-  /* Content title bar */
-  .content-title-bar { padding: 16px clamp(16px, 2.5vw, 28px) 12px; background: #fff; border-bottom: 1px solid #e8e8e8; display: flex; align-items: flex-start; justify-content: space-between; height: auto; min-height: 70px; }
-  .content-title-bar h1 { font-size: clamp(20px, 2vw, 26px); font-weight: 700; color: #1a1a1a; margin-bottom: 4px; }
-  .content-title-bar .subtitle { font-size: 13px; color: #888; }
+  /* Content title area */
+  .content-title-area { background: transparent; display: flex; justify-content: space-between; padding: 16px clamp(16px, 2.5vw, 28px) 0; flex-shrink: 0; }
+  .content-title-area h1 { font-size: clamp(20px, 2vw, 26px); font-weight: 700; color: #1a1a1a; margin-bottom: 4px; }
+  .content-title-area .subtitle { font-size: 13px; color: #888; }
   .new-chat-btn { background: transparent; color: #002139; border: 1.5px solid #002139; border-radius: 6px; padding: 7px 16px; font-size: 12px; font-weight: 600; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; transition: background .2s, color .2s; white-space: nowrap; }
   .new-chat-btn:hover { background: #002139; color: #fff; }
 
@@ -152,14 +158,14 @@
   .download-bar button:hover { background: #f0f0f0; }
   .followup { margin-top: 10px; padding: 10px 14px; font-size: 13px; color: #555; background: #f8f8f8; border-left: 3px solid #0097a7; border-radius: 4px; line-height: 1.5; }
 
-  /* Responsive: sidebar toggle & overlay */
-  .sidebar-toggle { display: none; background: none; border: none; color: #fff; cursor: pointer; padding: 4px; line-height: 0; }
+  /* Sidebar collapse button */
+  .sidebar-collapse-btn { background: none; border: none; color: #fff; cursor: pointer; padding: 4px; line-height: 0; transition: transform 0.3s ease; }
+  .main-container.sidebar-collapsed .sidebar-collapse-btn { transform: rotate(180deg); }
   .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 99; }
   .sidebar-overlay.active { display: block; }
 
   /* Tablet breakpoint */
   @media (max-width: 1023px) {
-    .sidebar-toggle { display: flex; }
     .sidebar {
       position: fixed; top: 0; left: 0; bottom: 0;
       width: 300px; z-index: 100;
@@ -169,6 +175,7 @@
       box-shadow: 2px 0 12px rgba(0,0,0,0.15);
     }
     .sidebar.open { transform: translateX(0); }
+    .main-container.sidebar-collapsed .sidebar { width: 300px; opacity: 1; pointer-events: auto; }
     .qq-card { flex: 1 1 calc(50% - 14px); max-width: calc(50% - 7px); }
   }
 
@@ -176,7 +183,7 @@
   @media (max-width: 767px) {
     .header { padding: 10px 16px; }
     .header-left .header-title { font-size: 14px; }
-    .content-title-bar { flex-direction: column; gap: 8px; align-items: stretch; }
+    .content-title-area { flex-direction: column; gap: 8px; align-items: stretch; }
     .new-chat-btn { align-self: flex-start; padding: 6px 12px; font-size: 11px; }
     .quick-questions-grid { flex-direction: column; gap: 10px; }
     .qq-card { flex: none; max-width: none; width: 100%; }
@@ -195,25 +202,7 @@
 </head>
 <body>
 
-<!-- Header -->
-<div class="header">
-  <div class="header-left">
-    <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-        stroke-width="2.5" stroke-linecap="round">
-        <line x1="3" y1="6" x2="21" y2="6"/>
-        <line x1="3" y1="12" x2="21" y2="12"/>
-        <line x1="3" y1="18" x2="21" y2="18"/>
-      </svg>
-    </button>
-    <span class="header-title">Call Center AI Insights</span>
-  </div>
-  <div class="header-right">
-    <div class="avatar">{{ (user_name or user_email or 'A')[0] | upper }}</div>
-  </div>
-</div>
-
-<div class="main-container">
+<div class="main-container" id="mainContainer">
   <div class="sidebar-overlay" id="sidebarOverlay"></div>
   <!-- Sidebar -->
   <div class="sidebar">
@@ -221,28 +210,47 @@
       <img src="/static/spec_large.png" alt="Spectrum">
     </div>
     <div class="sidebar-nav">
-      <div class="sidebar-section-header">
+      <div class="sidebar-section-header" id="sectionToggle">
         <span class="icon">&#128172;</span>
         <span>AI Forensics</span>
+        <span class="section-caret" id="sectionCaret">&#9650;</span>
       </div>
-      <div class="new-chat-link" onclick="newChat()">+ New Chat</div>
-      <div class="recent-label">
-        <span>&#128339;</span>
-        <span>Recent Conversations</span>
+      <div class="sidebar-section-body" id="sectionBody">
+        <div class="new-chat-link" onclick="newChat()">+ New Chat</div>
+        <div class="recent-label">
+          <span>&#128339;</span>
+          <span>Recent Conversations</span>
+        </div>
+        <div class="history-list" id="historyList">
+          <div class="history-spinner" id="historySpinner">Loading...</div>
+        </div>
+        <div class="load-more-link" id="loadMoreLink" style="display:none;" onclick="loadMoreHistory()"></div>
       </div>
-      <div class="history-list" id="historyList">
-        <div class="history-spinner" id="historySpinner">Loading...</div>
-      </div>
-      <div class="load-more-link" id="loadMoreLink" style="display:none;" onclick="loadMoreHistory()"></div>
     </div>
   </div>
 
   <!-- Content -->
   <div class="content">
-    <div class="content-title-bar">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-left">
+        <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" aria-label="Toggle sidebar">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+        </button>
+        <span class="header-title">Call Center AI Insights</span>
+      </div>
+      <div class="header-right">
+        <div class="avatar">{{ (user_name or user_email or 'A')[0] | upper }}</div>
+      </div>
+    </div>
+
+    <div class="content-title-area">
       <div>
         <h1>AI Forensics Chat</h1>
-        <div class="subtitle">Ask questions about call center data, agent performance, and customer insights</div>
+        <div class="subtitle">Your AI assistant for Customer Insights</div>
       </div>
       <button class="new-chat-btn" onclick="newChat()">New Chat</button>
     </div>
@@ -818,10 +826,16 @@ function downloadChart(canvas) {
   a.click();
 }
 
-// --- Responsive sidebar toggle ---
-const sidebarToggle = document.getElementById('sidebarToggle');
+// --- Sidebar toggle & collapse ---
+const sidebarCollapseBtn = document.getElementById('sidebarCollapseBtn');
 const sidebar = document.querySelector('.sidebar');
 const sidebarOverlay = document.getElementById('sidebarOverlay');
+const mainContainer = document.getElementById('mainContainer');
+const sectionToggle = document.getElementById('sectionToggle');
+const sectionBody = document.getElementById('sectionBody');
+const sectionCaret = document.getElementById('sectionCaret');
+
+let sidebarCollapsed = false;
 
 function openSidebar() {
   sidebar.classList.add('open');
@@ -831,10 +845,36 @@ function closeSidebar() {
   sidebar.classList.remove('open');
   sidebarOverlay.classList.remove('active');
 }
-sidebarToggle.addEventListener('click', () => {
-  sidebar.classList.contains('open') ? closeSidebar() : openSidebar();
-});
+
+function toggleSidebarCollapse() {
+  if (window.innerWidth < 1024) {
+    sidebar.classList.contains('open') ? closeSidebar() : openSidebar();
+  } else {
+    sidebarCollapsed = !sidebarCollapsed;
+    mainContainer.classList.toggle('sidebar-collapsed', sidebarCollapsed);
+  }
+}
+sidebarCollapseBtn.addEventListener('click', toggleSidebarCollapse);
 sidebarOverlay.addEventListener('click', closeSidebar);
+
+// --- AI Forensics section toggle ---
+let sectionCollapsed = false;
+sectionToggle.addEventListener('click', () => {
+  sectionCollapsed = !sectionCollapsed;
+  sectionBody.classList.toggle('collapsed', sectionCollapsed);
+  sectionCaret.classList.toggle('collapsed', sectionCollapsed);
+});
+
+// --- Resize cleanup ---
+window.addEventListener('resize', () => {
+  if (window.innerWidth >= 1024) {
+    sidebar.classList.remove('open');
+    sidebarOverlay.classList.remove('active');
+  } else {
+    mainContainer.classList.remove('sidebar-collapsed');
+    sidebarCollapsed = false;
+  }
+});
 
 // --- Init ---
 showGreeting();
