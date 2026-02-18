@@ -140,11 +140,11 @@
 
   /* #3 - Feedback buttons */
   .feedback { display: flex; gap: 8px; margin-top: 8px; }
-  .feedback button { background: none; border: 1px solid #ddd; border-radius: 4px; padding: 2px 8px; cursor: pointer; font-size: 14px; color: #999; transition: all .15s; }
+  .feedback button { background: none; border: 1px solid #ddd; border-radius: 4px; padding: 2px 8px; cursor: pointer; font-size: 14px; color: #999; transition: all .15s; display: inline-flex; align-items: center; }
   .feedback button[data-rating="positive"]:hover { border-color: #27ae60; color: #27ae60; }
-  .feedback button[data-rating="positive"].selected { border-color: #27ae60; background: #27ae60; color: #fff; }
+  .feedback button[data-rating="positive"].selected { border-color: #27ae60; color: #27ae60; background: none; }
   .feedback button[data-rating="negative"]:hover { border-color: #c0392b; color: #c0392b; }
-  .feedback button[data-rating="negative"].selected { border-color: #c0392b; background: #c0392b; color: #fff; }
+  .feedback button[data-rating="negative"].selected { border-color: #c0392b; color: #c0392b; background: none; }
 
   /* #2 - Data table */
   .data-table-wrapper { margin-top: 10px; max-height: clamp(160px, 22vh, 320px); overflow: auto; border: 1px solid #e0e0e0; border-radius: 6px; }
@@ -672,8 +672,8 @@ function addFeedbackButtons(msgDiv, conversationId, messageId) {
   const fb = document.createElement('div');
   fb.className = 'feedback';
   fb.innerHTML =
-    '<button data-rating="positive" onclick="sendFeedback(this, \'' + conversationId + '\', \'' + messageId + '\', \'positive\')" title="Helpful">&#128077;</button>' +
-    '<button data-rating="negative" onclick="sendFeedback(this, \'' + conversationId + '\', \'' + messageId + '\', \'negative\')" title="Not helpful">&#128078;</button>';
+    '<button data-rating="positive" onclick="sendFeedback(this, \'' + conversationId + '\', \'' + messageId + '\', \'positive\')" title="Helpful"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10v12"/><path d="M15 5.88L14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2h0a3.13 3.13 0 0 1 3 3.88Z"/></svg></button>' +
+    '<button data-rating="negative" onclick="sendFeedback(this, \'' + conversationId + '\', \'' + messageId + '\', \'negative\')" title="Not helpful"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transform:scaleY(-1)"><path d="M7 10v12"/><path d="M15 5.88L14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2h0a3.13 3.13 0 0 1 3 3.88Z"/></svg></button>';
   msgDiv.querySelector('.bubble').appendChild(fb);
 }
 
