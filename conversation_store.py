@@ -56,21 +56,18 @@ class ConversationStore:
             return None
 
     def _ensure_table(self):
-        """Create the schema and table if they don't exist yet."""
+        """Verify the table exists (must be pre-created by an admin)."""
         if self._table_ready:
             return
-        parts = self._table.split(".")
-        if len(parts) == 3:
-            catalog, schema, _ = parts
-            self._execute(f"CREATE SCHEMA IF NOT EXISTS `{catalog}`.`{schema}`")
-        self._execute(
-            f"CREATE TABLE IF NOT EXISTS {self._table} ("
-            "  user_email STRING NOT NULL,"
-            "  conversation_id STRING NOT NULL,"
-            "  created_at TIMESTAMP DEFAULT current_timestamp()"
-            ")"
-        )
-        self._table_ready = True
+        resp = self._execute(f"SELECT 1 FROM {self._table} LIMIT 0")
+        if resp is not None:
+            self._table_ready = True
+        else:
+            logger.warning(
+                f"Table {self._table} is not accessible. "
+                "An admin must create the schema and table, then grant "
+                "USE SCHEMA + SELECT + MODIFY to the app service principal."
+            )
 
     def record(self, user_email: str, conversation_id: str):
         """Record a new user -> conversation mapping."""
@@ -78,7 +75,8 @@ class ConversationStore:
         from databricks.sdk.service.sql import StatementParameterListItem
 
         self._execute(
-            f"INSERT INTO {self._table} (user_email, conversation_id) VALUES (:email, :conv_id)",
+            f"INSERT INTO {self._table} (user_email, conversation_id, created_at) "
+            "VALUES (:email, :conv_id, current_timestamp())",
             parameters=[
                 StatementParameterListItem(name="email", value=user_email),
                 StatementParameterListItem(name="conv_id", value=conversation_id),
