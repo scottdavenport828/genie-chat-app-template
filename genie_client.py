@@ -470,20 +470,25 @@ class GenieClient:
     def _extract_result(self, message) -> GenieResult:
         """Extract structured result from a completed Genie message."""
         try:
-            raw_response = ""
+            query_texts = []
+            other_texts = []
             sql_query = None
 
             if hasattr(message, 'attachments') and message.attachments:
                 for attachment in message.attachments:
-                    if hasattr(attachment, 'query'):
+                    has_query = hasattr(attachment, 'query') and attachment.query
+                    if has_query:
                         query_info = attachment.query
-
                         if hasattr(query_info, 'query'):
                             sql_query = query_info.query
 
-                    if hasattr(attachment, 'text'):
-                        if hasattr(attachment.text, 'content'):
-                            raw_response += attachment.text.content + "\n"
+                    if hasattr(attachment, 'text') and hasattr(attachment.text, 'content'):
+                        if has_query:
+                            query_texts.append(attachment.text.content)
+                        else:
+                            other_texts.append(attachment.text.content)
+
+            raw_response = "\n".join(query_texts + other_texts)
 
             if not raw_response.strip() and hasattr(message, 'content'):
                 raw_response = str(message.content)
