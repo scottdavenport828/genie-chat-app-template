@@ -635,7 +635,16 @@ async function loadQueryResult(msgDiv, conversationId, messageId) {
   try {
     const res = await fetch('/api/conversations/' + conversationId + '/messages/' + messageId + '/result');
     const data = await res.json();
-    if (!data.success || !data.columns || !data.rows || data.rows.length === 0) return;
+    if (!data.success) {
+      console.error('loadQueryResult failed:', data.error || 'unknown error', {conversationId, messageId});
+      const bubble = msgDiv.querySelector('.bubble');
+      const errDiv = document.createElement('div');
+      errDiv.style.cssText = 'margin-top:8px;font-size:12px;color:#c0392b;';
+      errDiv.textContent = 'Could not load results: ' + (data.error || 'unknown error');
+      bubble.appendChild(errDiv);
+      return;
+    }
+    if (!data.columns || !data.rows || data.rows.length === 0) return;
 
     const bubble = msgDiv.querySelector('.bubble');
     const columns = data.columns;

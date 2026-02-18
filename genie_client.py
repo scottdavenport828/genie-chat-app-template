@@ -295,30 +295,94 @@ class GenieClient:
             logger.exception(f"Error listing conversations: {e}")
             return []
 
-    def get_query_result(self, conversation_id: str, message_id: str) -> Optional[Dict[str, Any]]:
-        """Get the query result data (columns + rows) for a completed message."""
+    def get_query_result(self, conversation_id: str, message_id: str) -> Dict[str, Any]:
+        """Get the query result data (columns + rows) for a completed message.
+
+        Always returns a dict. On success it contains columns/rows/total_rows.
+        On failure it contains an "error" key describing what went wrong.
+
+        The Genie get_message_query_result API often returns data_array=None.
+        When that happens we fall back to the Statement Execution API using
+        the statement_id from the response.
+        """
         try:
             def get_result():
                 return self.client.genie.get_message_query_result(
                     space_id=self.space_id, conversation_id=conversation_id, message_id=message_id
                 )
             response = self._retry_with_backoff(get_result, "get_message_query_result")
+
             stmt = response.statement_response
-            if not stmt or not stmt.manifest or not stmt.result:
-                return None
+            if not stmt:
+                logger.warning("statement_response is None")
+                return {"error": "statement_response is None — query may still be executing"}
+            if not stmt.manifest:
+                logger.warning("statement_response.manifest is None")
+                return {"error": "manifest is None — no schema returned"}
+
             columns = [
                 {"name": c.name, "type": str(c.type_name.value) if c.type_name else "STRING"}
                 for c in (stmt.manifest.schema.columns or [])
             ]
-            rows = stmt.result.data_array or []
+
+            # Try inline data first
+            rows = stmt.result.data_array if stmt.result else None
+            if rows is not None:
+                return {
+                    "columns": columns,
+                    "rows": rows,
+                    "total_rows": stmt.manifest.total_row_count,
+                }
+
+            # Fallback: fetch via Statement Execution API using statement_id
+            statement_id = getattr(stmt, 'statement_id', None)
+            if not statement_id:
+                logger.warning("data_array is None and no statement_id to fall back on")
+                return {"error": "No inline data and no statement_id available"}
+
+            logger.info(f"Falling back to statement_execution API (statement_id={statement_id})")
+            return self._fetch_statement_result(statement_id, columns)
+
+        except Exception as e:
+            logger.exception(f"Error getting query result: {e}")
+            return {"error": f"Exception: {e}"}
+
+    def _fetch_statement_result(self, statement_id: str, columns: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Fetch result data from the Statement Execution API."""
+        try:
+            def get_stmt():
+                return self.client.statement_execution.get_statement(statement_id)
+            result = self._retry_with_backoff(get_stmt, "get_statement")
+
+            status = result.status
+            if status and status.state:
+                state_str = str(status.state.value) if hasattr(status.state, 'value') else str(status.state)
+                if state_str != "SUCCEEDED":
+                    err = getattr(status, 'error', None)
+                    logger.warning(f"Statement {statement_id} state={state_str}, error={err}")
+                    return {"error": f"Statement not succeeded (state={state_str})"}
+
+            manifest = result.manifest
+            if manifest and manifest.schema and manifest.schema.columns:
+                columns = [
+                    {"name": c.name, "type": str(c.type_name.value) if c.type_name else "STRING"}
+                    for c in manifest.schema.columns
+                ]
+
+            rows = result.result.data_array if result.result else None
+            if rows is None:
+                logger.warning(f"Statement {statement_id}: data_array still None from statement_execution API")
+                return {"error": "data_array is None from statement_execution API"}
+
+            total_rows = manifest.total_row_count if manifest else len(rows)
             return {
                 "columns": columns,
                 "rows": rows,
-                "total_rows": stmt.manifest.total_row_count,
+                "total_rows": total_rows,
             }
         except Exception as e:
-            logger.exception(f"Error getting query result: {e}")
-            return None
+            logger.exception(f"Error fetching statement result: {e}")
+            return {"error": f"Statement fetch failed: {e}"}
 
     def send_feedback(self, conversation_id: str, message_id: str, rating: str) -> bool:
         """Send thumbs up/down feedback on a Genie message."""

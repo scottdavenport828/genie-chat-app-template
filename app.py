@@ -102,8 +102,8 @@ def get_query_result(conversation_id, message_id):
     if not genie:
         return jsonify({"success": False, "error": "GENIE_SPACE_ID not configured"}), 500
     result = genie.get_query_result(conversation_id, message_id)
-    if result is None:
-        return jsonify({"success": False, "error": "No query result available"})
+    if "error" in result:
+        return jsonify({"success": False, "error": result["error"]})
     return jsonify({"success": True, **result})
 
 
