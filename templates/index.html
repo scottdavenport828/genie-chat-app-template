@@ -594,6 +594,10 @@ async function sendQuestion() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     });
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(errText.substring(0, 120) || ('Server error ' + res.status));
+    }
     const data = await res.json();
     removeTyping();
 
