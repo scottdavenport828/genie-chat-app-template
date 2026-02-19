@@ -157,8 +157,6 @@
   .download-bar { display: flex; gap: 8px; margin-top: 8px; }
   .download-bar button { background: none; border: 1px solid #ddd; border-radius: 4px; padding: 3px 10px; cursor: pointer; font-size: 11px; color: #002139; }
   .download-bar button:hover { background: #f0f0f0; }
-  .followup { margin-top: 10px; padding: 10px 14px; font-size: 13px; color: #555; background: #f8f8f8; border-left: 3px solid #0097a7; border-radius: 4px; line-height: 1.5; }
-
   /* Sidebar collapse button */
   .sidebar-collapse-btn { background: none; border: none; color: #fff; cursor: pointer; padding: 4px; line-height: 0; transition: transform 0.3s ease; }
   .main-container.sidebar-collapsed .sidebar-collapse-btn { transform: rotate(180deg); }
@@ -472,12 +470,7 @@ async function switchChat(conversationId, title) {
           details.className = 'sql-toggle';
           details.innerHTML = '<summary>View SQL</summary><pre>' + formatSQL(escapeHtml(msg.sql_query)) + '</pre>';
           msgDiv.querySelector('.bubble').appendChild(details);
-          loadQueryResult(msgDiv, conversationId, msg.message_id, msg.followup);
-        } else if (msg.role === 'assistant' && msg.followup) {
-          const fuDiv = document.createElement('div');
-          fuDiv.className = 'followup';
-          fuDiv.innerHTML = formatMarkdown(msg.followup);
-          msgDiv.querySelector('.bubble').appendChild(fuDiv);
+          loadQueryResult(msgDiv, conversationId, msg.message_id);
         }
         if (msg.role === 'assistant') {
           addFeedbackButtons(msgDiv, conversationId, msg.message_id);
@@ -620,12 +613,7 @@ async function sendQuestion() {
         details.className = 'sql-toggle';
         details.innerHTML = '<summary>View SQL</summary><pre>' + formatSQL(escapeHtml(data.sql_query)) + '</pre>';
         msgDiv.querySelector('.bubble').appendChild(details);
-        loadQueryResult(msgDiv, data.conversation_id, data.message_id, data.followup);
-      } else if (data.followup) {
-        const fuDiv = document.createElement('div');
-        fuDiv.className = 'followup';
-        fuDiv.innerHTML = formatMarkdown(data.followup);
-        msgDiv.querySelector('.bubble').appendChild(fuDiv);
+        loadQueryResult(msgDiv, data.conversation_id, data.message_id);
       }
       if (data.elapsed_seconds) {
         const el = document.createElement('div');
@@ -702,7 +690,7 @@ function isNumericType(typeName) {
   return NUMERIC_TYPES.has(typeName.toUpperCase());
 }
 
-async function loadQueryResult(msgDiv, conversationId, messageId, followup) {
+async function loadQueryResult(msgDiv, conversationId, messageId) {
   if (!conversationId || !messageId) return;
   try {
     const res = await fetch('/api/conversations/' + conversationId + '/messages/' + messageId + '/result');
@@ -794,13 +782,6 @@ async function loadQueryResult(msgDiv, conversationId, messageId, followup) {
       downloadBar.appendChild(chartBtn);
     }
     bubble.appendChild(downloadBar);
-
-    if (followup) {
-      const fuDiv = document.createElement('div');
-      fuDiv.className = 'followup';
-      fuDiv.innerHTML = formatMarkdown(followup);
-      bubble.appendChild(fuDiv);
-    }
 
   } catch (err) {
     console.error('Failed to load query result:', err);
