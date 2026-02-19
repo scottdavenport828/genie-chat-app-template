@@ -1,4 +1,4 @@
-command: ["gunicorn", "app:app", "--bind", "0.0.0.0:8000", "--workers", "1", "--threads", "12", "--worker-class", "gthread", "--timeout", "600"]
+command: ["gunicorn", "app:app", "--bind", "0.0.0.0:8000", "--workers", "4", "--threads", "25", "--worker-class", "gthread", "--timeout", "600"]
 env:
   - name: GENIE_SPACE_ID
     value: "<YOUR_GENIE_SPACE_ID>"
