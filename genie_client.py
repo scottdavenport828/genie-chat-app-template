@@ -483,9 +483,6 @@ class GenieClient:
 
             raw_response = "\n".join(texts)
 
-            if not raw_response.strip() and hasattr(message, 'content'):
-                raw_response = str(message.content)
-
             return GenieResult(
                 success=True,
                 raw_response=raw_response.strip(),
