@@ -84,7 +84,7 @@ class GenieClient:
     ]
 
     FOLLOW_UP_SETTLE_SECONDS = 3.0       # Seconds between each check
-    FOLLOW_UP_INITIAL_STABLE_CHECKS = 3  # Checks before declaring stable (no follow-up seen yet) = 9s
+    FOLLOW_UP_INITIAL_STABLE_CHECKS = 5  # Checks before declaring stable (no follow-up seen yet) = 15s
     FOLLOW_UP_CHAIN_STABLE_CHECKS = 6    # Checks after a follow-up completed (watch for chains) = 18s
     MAX_FOLLOW_UP_CYCLES = 20            # Overall cap
 
@@ -190,6 +190,17 @@ class GenieClient:
                     final = self._wait_for_final_message(conversation_id, message_id, start_time)
                     if final is not None:
                         return final
+                    # Re-fetch to catch in-place updates during the stability window
+                    try:
+                        def refetch():
+                            return self.client.genie.get_message(
+                                space_id=self.space_id,
+                                conversation_id=conversation_id,
+                                message_id=message_id,
+                            )
+                        message = self._retry_with_backoff(refetch, "get_message (re-fetch)")
+                    except Exception:
+                        pass  # Fall through to use original message
 
                 result = self._extract_result(message)
                 result.elapsed_seconds = elapsed
