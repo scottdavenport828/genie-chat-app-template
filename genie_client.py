@@ -595,6 +595,12 @@ class GenieClient:
                         if hasattr(attachment.text, 'content'):
                             texts.append(attachment.text.content)
 
+            # Follow-up messages prepend the question Genie asked itself as the
+            # first text attachment.  Strip it so only the answer is returned.
+            if len(texts) > 1 and texts[0].rstrip().endswith("?"):
+                logger.debug(f"Stripping follow-up question from response: {texts[0][:80]}...")
+                texts = texts[1:]
+
             raw_response = "\n".join(texts)
 
             return GenieResult(
