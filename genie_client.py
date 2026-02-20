@@ -441,11 +441,16 @@ class GenieClient:
                     "total_rows": stmt.manifest.total_row_count,
                 }
 
-            # Fallback: fetch via Statement Execution API using statement_id
+            # No inline data — could be an empty result set or a large result needing fallback
             statement_id = getattr(stmt, 'statement_id', None)
             if not statement_id:
-                logger.warning("data_array is None and no statement_id to fall back on")
-                return {"error": "No inline data and no statement_id available"}
+                # No fallback available — treat as empty result (query succeeded with 0 rows)
+                logger.info("data_array is None with no statement_id — returning empty result set")
+                return {
+                    "columns": columns,
+                    "rows": [],
+                    "total_rows": 0,
+                }
 
             logger.info(f"Falling back to statement_execution API (statement_id={statement_id})")
             return self._fetch_statement_result(statement_id, columns)
@@ -478,8 +483,9 @@ class GenieClient:
 
             rows = result.result.data_array if result.result else None
             if rows is None:
-                logger.warning(f"Statement {statement_id}: data_array still None from statement_execution API")
-                return {"error": "data_array is None from statement_execution API"}
+                # Query succeeded but returned no rows — treat as empty result set
+                logger.info(f"Statement {statement_id}: data_array is None — returning empty result set")
+                rows = []
 
             total_rows = manifest.total_row_count if manifest else len(rows)
             return {
