@@ -152,6 +152,11 @@
   .data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
   .data-table th { background: #f5f5f5; position: sticky; top: 0; padding: 6px 10px; text-align: left; border-bottom: 2px solid #ddd; font-weight: 600; white-space: nowrap; }
   .data-table td { padding: 4px 10px; border-bottom: 1px solid #eee; white-space: nowrap; }
+  .data-table td.cell-expandable { max-width: 300px; overflow: hidden; text-overflow: ellipsis; cursor: pointer; position: relative; padding-left: 20px; }
+  .data-table td.cell-expandable::before { content: '\25BC'; position: absolute; left: 4px; top: 50%; transform: translateY(-50%); font-size: 8px; color: #999; }
+  .data-table td.cell-expandable:hover { background: #f0f4f8; }
+  .data-table td.cell-expanded { white-space: pre-wrap; max-width: none; overflow: visible; cursor: pointer; position: relative; padding-left: 20px; }
+  .data-table td.cell-expanded::before { content: '\25B2'; position: absolute; left: 4px; top: 6px; font-size: 8px; color: #999; }
   .data-table tr:hover td { background: #fafafa; }
   .chart-container { margin-top: 10px; max-height: clamp(160px, 22vh, 320px); position: relative; }
   .download-bar { display: flex; gap: 8px; margin-top: 8px; }
@@ -719,6 +724,15 @@ async function loadQueryResult(msgDiv, conversationId, messageId) {
     const columns = data.columns;
     const rows = data.rows;
 
+    // Detect long-text columns
+    const LONG_TEXT_THRESHOLD = 80;
+    const longCols = new Set();
+    rows.forEach(row => {
+      row.forEach((val, i) => {
+        if (val && String(val).length > LONG_TEXT_THRESHOLD) longCols.add(i);
+      });
+    });
+
     // Build data table
     const wrapper = document.createElement('div');
     wrapper.className = 'data-table-wrapper';
@@ -727,11 +741,23 @@ async function loadQueryResult(msgDiv, conversationId, messageId) {
     tableHtml += '</tr></thead><tbody>';
     rows.forEach(row => {
       tableHtml += '<tr>';
-      row.forEach(val => { tableHtml += '<td>' + escapeHtml(val !== null && val !== undefined ? String(val) : '') + '</td>'; });
+      row.forEach((val, i) => {
+        const cls = longCols.has(i) ? ' class="cell-expandable"' : '';
+        tableHtml += '<td' + cls + '>' + escapeHtml(val !== null && val !== undefined ? String(val) : '') + '</td>';
+      });
       tableHtml += '</tr>';
     });
     tableHtml += '</tbody></table>';
     wrapper.innerHTML = tableHtml;
+
+    // Click-to-expand for long-text cells
+    wrapper.addEventListener('click', function(e) {
+      const td = e.target.closest('td.cell-expandable, td.cell-expanded');
+      if (!td) return;
+      td.classList.toggle('cell-expandable');
+      td.classList.toggle('cell-expanded');
+    });
+
     bubble.appendChild(wrapper);
 
     // Chart: render if <=20 rows, >=1 numeric col, >=1 label col
