@@ -583,25 +583,24 @@ class GenieClient:
     def _extract_result(self, message) -> GenieResult:
         """Extract structured result from a completed Genie message."""
         try:
-            texts = []
+            query_texts = []   # text from attachments that have a SQL query (= the answer)
+            other_texts = []   # text from attachments without a query (= follow-up question)
             sql_query = None
 
             if hasattr(message, 'attachments') and message.attachments:
                 for attachment in message.attachments:
-                    if hasattr(attachment, 'query') and attachment.query:
+                    has_query = hasattr(attachment, 'query') and attachment.query
+                    if has_query:
                         if hasattr(attachment.query, 'query'):
                             sql_query = attachment.query.query
-                    if hasattr(attachment, 'text'):
-                        if hasattr(attachment.text, 'content'):
-                            texts.append(attachment.text.content)
+                    if hasattr(attachment, 'text') and hasattr(attachment.text, 'content'):
+                        if has_query:
+                            query_texts.append(attachment.text.content)
+                        else:
+                            other_texts.append(attachment.text.content)
 
-            # Follow-up messages prepend the question Genie asked itself as the
-            # first text attachment.  Strip it so only the answer is returned.
-            if len(texts) > 1 and texts[0].rstrip().endswith("?"):
-                logger.debug(f"Stripping follow-up question from response: {texts[0][:80]}...")
-                texts = texts[1:]
-
-            raw_response = "\n".join(texts)
+            # Answer first, follow-up question(s) after
+            raw_response = "\n".join(query_texts + other_texts)
 
             return GenieResult(
                 success=True,
