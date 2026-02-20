@@ -83,6 +83,11 @@ class GenieClient:
         "500", "502", "503", "504", "temporarily unavailable",
     ]
 
+    FOLLOW_UP_SETTLE_SECONDS = 3.0       # Seconds between each check
+    FOLLOW_UP_INITIAL_STABLE_CHECKS = 3  # Checks before declaring stable (no follow-up seen yet) = 9s
+    FOLLOW_UP_CHAIN_STABLE_CHECKS = 6    # Checks after a follow-up completed (watch for chains) = 18s
+    MAX_FOLLOW_UP_CYCLES = 20            # Overall cap
+
     def __init__(
         self,
         space_id: str,
@@ -156,7 +161,8 @@ class GenieClient:
     def _is_terminal_failure(self, status: str) -> bool:
         return any(s in status for s in TERMINAL_FAILURE_STATES)
 
-    def _poll_for_result(self, conversation_id: str, message_id: str, start_time: float) -> GenieResult:
+    def _poll_for_result(self, conversation_id: str, message_id: str, start_time: float,
+                         _check_follow_ups: bool = True) -> GenieResult:
         """Poll a message until it reaches a terminal state and extract the result."""
         current_poll_interval = self.initial_poll_interval
 
@@ -180,6 +186,11 @@ class GenieClient:
             elapsed = time.time() - start_time
 
             if self._is_terminal_success(status):
+                if _check_follow_ups:
+                    final = self._wait_for_final_message(conversation_id, message_id, start_time)
+                    if final is not None:
+                        return final
+
                 result = self._extract_result(message)
                 result.elapsed_seconds = elapsed
                 result.conversation_id = conversation_id
@@ -210,6 +221,103 @@ class GenieClient:
             conversation_id=conversation_id,
             message_id=message_id
         )
+
+    def _wait_for_final_message(self, conversation_id: str, last_known_id: str,
+                                start_time: float) -> Optional[GenieResult]:
+        """Check if Genie spawned follow-up messages with a refined answer.
+
+        Returns the final GenieResult if a newer message was found, or None if
+        the original message is already the final answer.
+        """
+        original_id = last_known_id
+        consecutive_stable = 0
+        for cycle in range(self.MAX_FOLLOW_UP_CYCLES):
+            if time.time() - start_time >= self.timeout_seconds:
+                logger.warning("Timeout reached while checking for follow-up messages")
+                break
+
+            time.sleep(self.FOLLOW_UP_SETTLE_SECONDS)
+
+            try:
+                def list_msgs():
+                    return self.client.genie.list_conversation_messages(
+                        space_id=self.space_id,
+                        conversation_id=conversation_id,
+                    )
+                response = self._retry_with_backoff(list_msgs, "list_conversation_messages (follow-up)")
+            except Exception as e:
+                logger.warning(f"Failed to list conversation messages for follow-up check: {e}")
+                break
+
+            items = response.messages if hasattr(response, 'messages') else response
+            if not items:
+                break
+
+            # Find the latest message by last_updated_timestamp
+            latest_msg = max(
+                items,
+                key=lambda m: getattr(m, 'last_updated_timestamp', 0) or 0,
+            )
+            latest_id = getattr(latest_msg, 'message_id', None) or getattr(latest_msg, 'id', None)
+
+            if latest_id == last_known_id:
+                consecutive_stable += 1
+                # Short wait if no follow-up seen yet; longer wait after a follow-up completed
+                required = (self.FOLLOW_UP_INITIAL_STABLE_CHECKS
+                            if last_known_id == original_id
+                            else self.FOLLOW_UP_CHAIN_STABLE_CHECKS)
+                if consecutive_stable >= required:
+                    logger.debug(f"Follow-up cycle {cycle + 1}: conversation stabilized after "
+                                 f"{consecutive_stable} consecutive checks")
+                    return None
+                logger.debug(f"Follow-up cycle {cycle + 1}: no new message yet "
+                             f"({consecutive_stable}/{required} stable checks)")
+                continue
+
+            # New message appeared — reset stable counter
+            consecutive_stable = 0
+            status = self._get_status_string(latest_msg)
+            logger.info(f"Follow-up message detected: {latest_id} (status={status}, cycle={cycle + 1})")
+
+            if self._is_terminal_failure(status):
+                logger.warning(f"Follow-up message {latest_id} failed ({status}), using original result")
+                return None
+
+            if self._is_terminal_success(status):
+                # Completed — but loop once more to confirm no further follow-ups
+                last_known_id = latest_id
+                continue
+
+            # Still processing — poll it to completion (without recursing into follow-up checks)
+            result = self._poll_for_result(conversation_id, latest_id, start_time,
+                                           _check_follow_ups=False)
+            if not result.success:
+                logger.warning(f"Follow-up message {latest_id} failed during polling, using original result")
+                return None
+            # Polled to completion; loop again to check for yet another follow-up
+            last_known_id = latest_id
+
+        # If we got here via a completed follow-up (last_known_id changed), extract that result
+        if last_known_id != original_id:
+            # Re-fetch the final message to extract its result
+            try:
+                def get_final():
+                    return self.client.genie.get_message(
+                        space_id=self.space_id,
+                        conversation_id=conversation_id,
+                        message_id=last_known_id,
+                    )
+                final_msg = self._retry_with_backoff(get_final, "get_message (final)")
+                result = self._extract_result(final_msg)
+                result.elapsed_seconds = time.time() - start_time
+                result.conversation_id = conversation_id
+                result.message_id = last_known_id
+                logger.info(f"Returning follow-up message {last_known_id} as final answer")
+                return result
+            except Exception as e:
+                logger.warning(f"Failed to fetch final follow-up message: {e}")
+
+        return None
 
     def ask(self, question: str) -> GenieResult:
         """Ask Genie a question by starting a new conversation."""
@@ -450,7 +558,7 @@ class GenieClient:
                                 "role": "assistant",
                                 "content": result.raw_response or "(Query executed)",
                                 "sql_query": result.sql_query,
-                                "message_id": getattr(msg, 'id', None),
+                                "message_id": getattr(msg, 'message_id', None) or getattr(msg, 'id', None),
                                 "timestamp": getattr(msg, 'last_updated_timestamp', None),
                             })
 
