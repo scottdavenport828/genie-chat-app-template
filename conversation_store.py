@@ -64,36 +64,78 @@ class ConversationStore:
                 "USE SCHEMA + SELECT + MODIFY to the app service principal."
             )
 
-    def record(self, user_email: str, conversation_id: str):
-        """Record a new user -> conversation mapping."""
+    def record(self, user_email: str, conversation_id: str, title: str = None):
+        """Record a new user -> conversation mapping, with an optional title.
+
+        Sets both created_at and updated_at to the current timestamp on insert.
+        """
         self._ensure_table()
         from databricks.sdk.service.sql import StatementParameterListItem
 
         self._execute(
-            f"INSERT INTO {self._table} (user_email, conversation_id, created_at) "
-            "VALUES (:email, :conv_id, current_timestamp())",
+            f"INSERT INTO {self._table} (user_email, conversation_id, title, created_at, updated_at) "
+            "VALUES (:email, :conv_id, :title, current_timestamp(), current_timestamp())",
+            parameters=[
+                StatementParameterListItem(name="email", value=user_email),
+                StatementParameterListItem(name="conv_id", value=conversation_id),
+                StatementParameterListItem(name="title", value=title or ""),
+            ],
+        )
+        logger.info(f"Recorded conversation {conversation_id} for {user_email}")
+
+    def touch(self, user_email: str, conversation_id: str):
+        """Update updated_at to now for an existing conversation.
+
+        Called on every follow-up message so the sidebar sorts most-recently
+        active conversations to the top.
+        """
+        self._ensure_table()
+        from databricks.sdk.service.sql import StatementParameterListItem
+
+        self._execute(
+            f"UPDATE {self._table} SET updated_at = current_timestamp() "
+            "WHERE user_email = :email AND conversation_id = :conv_id",
             parameters=[
                 StatementParameterListItem(name="email", value=user_email),
                 StatementParameterListItem(name="conv_id", value=conversation_id),
             ],
         )
-        logger.info(f"Recorded conversation {conversation_id} for {user_email}")
+        logger.debug(f"Touched conversation {conversation_id} for {user_email}")
 
-    def get_ids(self, user_email: str) -> set:
-        """Return conversation IDs for a user (always reads from Delta)."""
+    def get_conversations(self, user_email: str) -> list:
+        """Return all conversations for a user with stored metadata from Delta.
+
+        This is the authoritative listing source — it always returns every
+        conversation the user has ever started, regardless of what the Genie
+        API happens to return in a given list_conversations call.
+
+        Results are ordered by updated_at descending so the most recently
+        active conversation appears first in the sidebar.
+        """
         self._ensure_table()
         from databricks.sdk.service.sql import StatementParameterListItem
 
         resp = self._execute(
-            f"SELECT conversation_id FROM {self._table} WHERE user_email = :email",
+            f"SELECT conversation_id, title, created_at, updated_at FROM {self._table} "
+            "WHERE user_email = :email ORDER BY updated_at DESC",
             parameters=[
                 StatementParameterListItem(name="email", value=user_email),
             ],
         )
-        ids = set()
+        conversations = []
         if resp and resp.result and resp.result.data_array:
-            ids = {row[0] for row in resp.result.data_array}
-        return ids
+            for row in resp.result.data_array:
+                conversations.append({
+                    "id": row[0],
+                    "title": row[1] or "Untitled",
+                    "created_at": row[2],
+                    "updated_at": row[3],
+                })
+        return conversations
+
+    def get_ids(self, user_email: str) -> set:
+        """Return conversation IDs for a user (always reads from Delta)."""
+        return {c["id"] for c in self.get_conversations(user_email)}
 
     def remove(self, user_email: str, conversation_id: str):
         """Remove a conversation mapping from Delta."""
