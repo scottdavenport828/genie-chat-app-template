@@ -60,14 +60,18 @@ def ask():
     else:
         result = genie.ask(question)
 
-    # Record new conversation ownership
-    if result.success and result.conversation_id and not conversation_id:
+    if result.success and result.conversation_id:
         user_email = request.headers.get("X-Forwarded-Email", "anonymous")
         if conv_store:
             try:
-                conv_store.record(user_email, result.conversation_id)
+                if not conversation_id:
+                    # New conversation — record ownership and store title
+                    conv_store.record(user_email, result.conversation_id, title=question[:60])
+                else:
+                    # Follow-up message — bump updated_at so sidebar order stays current
+                    conv_store.touch(user_email, result.conversation_id)
             except Exception as e:
-                logger.warning(f"Failed to record conversation ownership: {e}")
+                logger.warning(f"Failed to update conversation store: {e}")
 
     return jsonify({
         "success": result.success,
@@ -86,13 +90,34 @@ def list_conversations():
     if not genie:
         return jsonify({"success": False, "error": "GENIE_SPACE_ID not configured"}), 500
 
-    all_conversations = genie.list_conversations()
     if conv_store:
         user_email = request.headers.get("X-Forwarded-Email", "anonymous")
-        user_ids = conv_store.get_ids(user_email)
-        conversations = [c for c in all_conversations if c["id"] in user_ids]
+        # Delta table is the authoritative source — every conversation the user
+        # has ever started is here regardless of Genie API pagination limits.
+        delta_conversations = conv_store.get_conversations(user_email)
+
+        # Enrich with live Genie metadata (updated_at, authoritative title) where
+        # available, but never drop a conversation just because Genie didn't return it.
+        try:
+            genie_lookup = {c["id"]: c for c in genie.list_conversations()}
+        except Exception as e:
+            logger.warning(f"Could not fetch Genie conversation list for enrichment: {e}")
+            genie_lookup = {}
+
+        conversations = []
+        for conv in delta_conversations:
+            genie_data = genie_lookup.get(conv["id"], {})
+            conversations.append({
+                "id": conv["id"],
+                "title": genie_data.get("title") or conv["title"],
+                "created_at": conv["created_at"],
+                # Prefer Genie's updated_at; fall back to Delta's own updated_at
+                # so the sidebar always has a meaningful recency timestamp.
+                "updated_at": genie_data.get("updated_at") or conv.get("updated_at"),
+            })
     else:
-        conversations = all_conversations
+        conversations = genie.list_conversations()
+
     return jsonify({"success": True, "conversations": conversations})
 
 

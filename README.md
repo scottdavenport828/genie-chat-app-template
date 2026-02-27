@@ -160,6 +160,48 @@ genie-chat-app-template/
 - `genie_client.py` polls with exponential backoff (1s → 60s) until the query completes or times out (10 min)
 - The response (text + SQL) is sent back to the browser and rendered in the chat
 
+## Conversation Persistence Setup
+
+To enable per-user conversation history that survives page reloads, the app uses a Delta table to record conversation ownership. Set these two env vars in `app.yaml`:
+
+```yaml
+env:
+  - name: DATABRICKS_WAREHOUSE_ID
+    value: "<your-warehouse-id>"
+  - name: CONVERSATION_TABLE
+    value: "<catalog>.<schema>.<table>"
+```
+
+### Creating the table (first-time setup)
+
+Run this in a Databricks notebook or SQL editor as a user with `CREATE TABLE` privilege on the target schema:
+
+```sql
+CREATE TABLE IF NOT EXISTS <catalog>.<schema>.<table> (
+  user_email     STRING  NOT NULL,
+  conversation_id STRING NOT NULL,
+  title          STRING,
+  created_at     TIMESTAMP
+);
+```
+
+Then grant the app service principal access:
+
+```sql
+GRANT USE SCHEMA ON SCHEMA <catalog>.<schema> TO `<app-service-principal>`;
+GRANT SELECT, MODIFY ON TABLE <catalog>.<schema>.<table> TO `<app-service-principal>`;
+```
+
+### Upgrading from an earlier version (schema migration)
+
+If you already have the table without the `title` column, add it with:
+
+```sql
+ALTER TABLE <catalog>.<schema>.<table> ADD COLUMN title STRING;
+```
+
+Existing rows will have `NULL` for title and display as "Untitled" in the sidebar. New conversations will automatically store the opening question as the title.
+
 ## Troubleshooting
 
 ### "GENIE_SPACE_ID not configured"

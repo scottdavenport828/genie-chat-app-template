@@ -424,25 +424,6 @@ function highlightActiveChat() {
   });
 }
 
-function addConversationToSidebar(id, title) {
-  // Remove any existing item with same id
-  const existing = historyList.querySelector('[data-id="' + id + '"]');
-  if (existing) existing.remove();
-  // Also update allConversations
-  allConversations = allConversations.filter(c => c.id !== id);
-  allConversations.unshift({ id: id, title: title, created_at: new Date().toISOString() });
-
-  const div = document.createElement('div');
-  div.className = 'history-item active';
-  div.dataset.id = id;
-  div.innerHTML =
-    '<div class="title">' + escapeHtml(title || 'New conversation') + '</div>' +
-    '<div class="timestamp">just now</div>' +
-    '<button class="history-delete" onclick="event.stopPropagation(); deleteChat(\'' + id + '\')" title="Delete"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button>';
-  div.onclick = () => switchChat(id, title);
-  historyList.prepend(div);
-  highlightActiveChat();
-}
 
 // --- Chat management ---
 
@@ -615,9 +596,12 @@ async function sendQuestion() {
       const isNew = !currentConversationId;
       currentConversationId = data.conversation_id;
       if (isNew) {
-        addConversationToSidebar(data.conversation_id, q.substring(0, 60));
+        // Reload sidebar from server so the new conversation appears correctly
+        // and no existing items are displaced or lost.
+        loadConversations();
+      } else {
+        highlightActiveChat();
       }
-      highlightActiveChat();
     }
 
     if (data.success) {
